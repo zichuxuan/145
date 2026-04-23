@@ -154,8 +154,10 @@ class WorkflowNodeConfigDialog(QDialog):
         layout.setContentsMargins(28, 24, 28, 24)
         layout.setSpacing(20)
 
-        title = QLabel(get_node_label(self.node_type))
+        title_text = "判断" if self.node_type == "judgment" else get_node_label(self.node_type)
+        title = QLabel(title_text)
         title.setStyleSheet("font-size: 32px; font-weight: 600;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter if self.node_type == "judgment" else Qt.AlignmentFlag.AlignLeft)
         layout.addWidget(title)
 
         if self.node_type == "judgment":
@@ -181,29 +183,32 @@ class WorkflowNodeConfigDialog(QDialog):
 
         layout.addStretch()
 
-        button_box = QDialogButtonBox(QDialogButtonBox.StandardButton.Cancel | QDialogButtonBox.StandardButton.Ok)
-        ok_button = button_box.button(QDialogButtonBox.StandardButton.Ok)
-        cancel_button = button_box.button(QDialogButtonBox.StandardButton.Cancel)
-        if ok_button:
-            ok_button.setText("确认")
-            ok_button.setStyleSheet("background-color: #007AFF; color: white; border: none;")
-        if cancel_button:
-            cancel_button.setText("取消")
-            cancel_button.setStyleSheet("background-color: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.18);")
-        button_box.accepted.connect(self.accept)
-        button_box.rejected.connect(self.reject)
-        layout.addWidget(button_box)
+        button_layout = QHBoxLayout()
+        button_layout.addStretch()
+
+        cancel_button = QPushButton("取消")
+        cancel_button.setFixedSize(120, 46)
+        cancel_button.setStyleSheet("background-color: rgba(255,255,255,0.08); color: white; border: 1px solid rgba(255,255,255,0.18); border-radius: 12px; font-size: 18px;")
+
+        ok_button = QPushButton("确认")
+        ok_button.setFixedSize(120, 46)
+        ok_button.setStyleSheet("background-color: #007AFF; color: white; border: none; border-radius: 12px; font-size: 18px;")
+
+        cancel_button.clicked.connect(self.reject)
+        ok_button.clicked.connect(self.accept)
+
+        button_layout.addWidget(cancel_button)
+        button_layout.addSpacing(16)
+        button_layout.addWidget(ok_button)
+        button_layout.addStretch()
+
+        layout.addLayout(button_layout)
 
     def _init_judgment_ui(self, layout):
-        self.widgets["condition_name"] = QLineEdit()
-        self.widgets["condition_name"].setText(str(self.node_config.get("condition_name") or "判断节点"))
-        layout.addWidget(self._create_section_label("判断名称"))
-        layout.addWidget(self.widgets["condition_name"])
-
         layout.addWidget(self._create_section_label("条件分支"))
 
-        branch_card = QFrame()
-        branch_card.setStyleSheet(
+        if_card = QFrame()
+        if_card.setStyleSheet(
             """
             QFrame {
                 background-color: rgba(255,255,255,0.04);
@@ -212,42 +217,52 @@ class WorkflowNodeConfigDialog(QDialog):
             }
             """
         )
-        card_layout = QVBoxLayout(branch_card)
-        card_layout.setContentsMargins(18, 16, 18, 16)
-        card_layout.setSpacing(14)
+        if_layout = QVBoxLayout(if_card)
+        if_layout.setContentsMargins(18, 16, 18, 16)
+        if_layout.setSpacing(14)
 
-        if_row = QHBoxLayout()
-        if_row.setSpacing(12)
+        if_header_row = QHBoxLayout()
+        if_header_row.setSpacing(12)
         if_label = QLabel("如果")
-        if_label.setStyleSheet("font-size: 20px; font-weight: 600;")
-        if_row.addWidget(if_label)
-        self.widgets["yes_label"] = QLineEdit()
-        self.widgets["yes_label"].setPlaceholderText("满足条件时分支文案")
-        self.widgets["yes_label"].setText(str(self.node_config.get("yes_label") or "当满足时"))
-        if_row.addWidget(self.widgets["yes_label"], stretch=1)
+        if_label.setStyleSheet("font-size: 20px; font-weight: 600; border: none; background: transparent;")
+        if_header_row.addWidget(if_label)
+        
+        if_header_row.addStretch()
+        
         self.add_condition_btn = QPushButton("增加条件")
-        self.add_condition_btn.setFixedHeight(40)
+        self.add_condition_btn.setFixedHeight(36)
         self.add_condition_btn.setStyleSheet(
-            "background-color: rgba(0,122,255,0.15); color: #60A5FA; border-radius: 8px; border: 1px solid rgba(96,165,250,0.45);"
+            "background-color: transparent; color: #60A5FA; border-radius: 6px; border: 1px solid #60A5FA; padding: 0 12px; font-size: 16px;"
         )
         self.add_condition_btn.clicked.connect(self._add_judgment_condition_row)
-        if_row.addWidget(self.add_condition_btn)
-        card_layout.addLayout(if_row)
+        if_header_row.addWidget(self.add_condition_btn)
+        if_layout.addLayout(if_header_row)
 
         self.judgment_conditions_layout = QVBoxLayout()
         self.judgment_conditions_layout.setContentsMargins(0, 0, 0, 0)
         self.judgment_conditions_layout.setSpacing(10)
-        card_layout.addLayout(self.judgment_conditions_layout)
+        if_layout.addLayout(self.judgment_conditions_layout)
+        
+        layout.addWidget(if_card)
 
+        else_card = QFrame()
+        else_card.setStyleSheet(
+            """
+            QFrame {
+                background-color: rgba(255,255,255,0.04);
+                border: 1px solid rgba(255,255,255,0.12);
+                border-radius: 12px;
+            }
+            """
+        )
+        else_layout = QVBoxLayout(else_card)
+        else_layout.setContentsMargins(18, 16, 18, 16)
+        
         else_label = QLabel("否则")
-        else_label.setStyleSheet("font-size: 20px; font-weight: 600;")
-        card_layout.addWidget(else_label)
-
-        self.widgets["no_label"] = QLineEdit()
-        self.widgets["no_label"].setPlaceholderText("否则分支文案")
-        self.widgets["no_label"].setText(str(self.node_config.get("no_label") or "否则"))
-        card_layout.addWidget(self.widgets["no_label"])
-        layout.addWidget(branch_card)
+        else_label.setStyleSheet("font-size: 20px; font-weight: 600; border: none; background: transparent;")
+        else_layout.addWidget(else_label)
+        
+        layout.addWidget(else_card)
 
         self.judgment_condition_rows = []
         for rule in self._get_judgment_rules():
@@ -274,7 +289,7 @@ class WorkflowNodeConfigDialog(QDialog):
         row_frame.setStyleSheet("QFrame { background: transparent; border: none; }")
         row_layout = QVBoxLayout(row_frame)
         row_layout.setContentsMargins(0, 0, 0, 0)
-        row_layout.setSpacing(8)
+        row_layout.setSpacing(12)
 
         fields_row = QHBoxLayout()
         fields_row.setContentsMargins(0, 0, 0, 0)
@@ -297,18 +312,20 @@ class WorkflowNodeConfigDialog(QDialog):
         value_input.setText(str((rule or {}).get("value") or ""))
         fields_row.addWidget(value_input, 3)
 
-        delete_btn = QPushButton("删")
+        delete_btn = QPushButton("🗑️")
         delete_btn.setFixedSize(40, 40)
         delete_btn.setStyleSheet(
-            "background-color: rgba(239,68,68,0.12); color: #F87171; border-radius: 8px; border: 1px solid rgba(239,68,68,0.24);"
+            "background-color: transparent; color: #EF4444; border: none; font-size: 20px;"
         )
+        delete_btn.setVisible(False)
         fields_row.addWidget(delete_btn)
+        
         row_layout.addLayout(fields_row)
 
         logic_combo = QComboBox()
         for option in JUDGMENT_LOGIC_OPTIONS:
             logic_combo.addItem(option, option)
-        logic_combo.setFixedWidth(120)
+        logic_combo.setFixedWidth(100)
         logic_combo.setCurrentText(str((rule or {}).get("joiner") or JUDGMENT_LOGIC_OPTIONS[0]))
         row_layout.addWidget(logic_combo, alignment=Qt.AlignmentFlag.AlignLeft)
 
@@ -339,7 +356,7 @@ class WorkflowNodeConfigDialog(QDialog):
         row_count = len(self.judgment_condition_rows)
         for index, row in enumerate(self.judgment_condition_rows):
             row["joiner"].setVisible(index < row_count - 1)
-            row["delete"].setEnabled(row_count > 1)
+            row["delete"].setVisible(row_count > 1)
 
     def _collect_judgment_rules(self):
         rules = []
@@ -397,9 +414,9 @@ class WorkflowNodeConfigDialog(QDialog):
     def get_config(self):
         if self.node_type == "judgment":
             result = copy.deepcopy(self.node_config)
-            result["condition_name"] = self.widgets["condition_name"].text().strip() or "判断节点"
-            result["yes_label"] = self.widgets["yes_label"].text().strip() or "当满足时"
-            result["no_label"] = self.widgets["no_label"].text().strip() or "否则"
+            result["condition_name"] = "判断节点"
+            result["yes_label"] = "当满足时"
+            result["no_label"] = "否则"
             result["condition_rules"] = self._collect_judgment_rules()
             result["condition_expression"] = self._format_judgment_expression(result["condition_rules"])
             return result
