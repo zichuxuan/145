@@ -147,10 +147,14 @@ class WorkflowNodeConfigDialog(QDialog):
                 padding: 10px 12px;
                 font-size: 18px;
             }
+            QComboBox::drop-down {
+                border: none;
+            }
             QComboBox QAbstractItemView {
                 background-color: #1F2937;
                 color: white;
                 selection-background-color: #007AFF;
+                border: 1px solid rgba(255,255,255,0.18);
             }
             QDialogButtonBox QPushButton {
                 min-width: 120px;
@@ -326,17 +330,20 @@ class WorkflowNodeConfigDialog(QDialog):
         for option in JUDGMENT_PROPERTY_OPTIONS:
             attr_combo.addItem(option, option)
         attr_combo.setCurrentText(str((rule or {}).get("attribute") or JUDGMENT_PROPERTY_OPTIONS[0]))
+        attr_combo.setStyleSheet("background-color: rgba(255,255,255,0.08);")
         fields_row.addWidget(attr_combo, 2)
 
         operator_combo = QComboBox()
         for option in JUDGMENT_OPERATOR_OPTIONS:
             operator_combo.addItem(option, option)
         operator_combo.setCurrentText(str((rule or {}).get("operator") or JUDGMENT_OPERATOR_OPTIONS[0]))
+        operator_combo.setStyleSheet("background-color: rgba(255,255,255,0.08);")
         fields_row.addWidget(operator_combo, 2)
 
         value_input = QLineEdit()
         value_input.setPlaceholderText("请输入")
         value_input.setText(str((rule or {}).get("value") or ""))
+        value_input.setStyleSheet("background-color: rgba(255,255,255,0.08);")
         fields_row.addWidget(value_input, 3)
 
         delete_btn = QPushButton("删除")
@@ -354,6 +361,7 @@ class WorkflowNodeConfigDialog(QDialog):
             logic_combo.addItem(option, option)
         logic_combo.setFixedWidth(100)
         logic_combo.setCurrentText(str((rule or {}).get("joiner") or JUDGMENT_LOGIC_OPTIONS[0]))
+        logic_combo.setStyleSheet("background-color: rgba(255,255,255,0.08);")
         row_layout.addWidget(logic_combo, alignment=Qt.AlignmentFlag.AlignLeft)
 
         row_data = {
