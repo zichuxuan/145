@@ -339,10 +339,10 @@ class WorkflowNodeConfigDialog(QDialog):
         value_input.setText(str((rule or {}).get("value") or ""))
         fields_row.addWidget(value_input, 3)
 
-        delete_btn = QPushButton("🗑️")
-        delete_btn.setFixedSize(40, 40)
+        delete_btn = QPushButton("删除")
+        delete_btn.setFixedSize(60, 40)
         delete_btn.setStyleSheet(
-            "background-color: transparent; color: #EF4444; border: none; font-size: 20px;"
+            "background-color: rgba(239,68,68,0.12); color: #F87171; border-radius: 8px; border: 1px solid rgba(239,68,68,0.24); font-size: 16px;"
         )
         delete_btn.setVisible(False)
         fields_row.addWidget(delete_btn)
