@@ -1,0 +1,19 @@
+{
+    "mqtt": {
+        "host": "192.168.1.136",
+        "port": 1883,
+        "username": "hmi",
+        "password": "hmipassword",
+        "client_id": "hmi_terminal_01",
+        "keepalive": 60
+    },
+    "api": {
+        "base_url": "http://192.168.1.136:8000",
+        "token": "changeme"
+    },
+    "ui": {
+        "title": "RK3588 HMI 智能终端",
+        "width": 800,
+        "height": 480
+    }
+}
