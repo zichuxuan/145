@@ -1,6 +1,7 @@
 import copy
 from functools import partial
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -139,7 +140,7 @@ class WorkflowNodeConfigDialog(QDialog):
             """
             QDialog { background-color: #1C212B; color: white; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; }
             QLabel { color: white; font-size: 18px; }
-            QLineEdit, QTextEdit, QComboBox, QSpinBox {
+            QLineEdit, QTextEdit, QSpinBox {
                 background-color: rgba(255,255,255,0.08);
                 color: white;
                 border: 1px solid rgba(255,255,255,0.18);
@@ -148,15 +149,20 @@ class WorkflowNodeConfigDialog(QDialog):
                 font-size: 18px;
             }
             QComboBox {
-                background-color: rgba(255,255,255,0.08);
+                background-color: #2D3748;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.18);
+                border-radius: 8px;
+                padding: 10px 12px;
             }
             QComboBox::drop-down {
                 border: none;
             }
             QComboBox QAbstractItemView {
-                background-color: #1F2937;
+                background-color: #2D3748;
                 color: white;
                 selection-background-color: #007AFF;
+                selection-color: white;
                 border: 1px solid rgba(255,255,255,0.18);
             }
             QDialogButtonBox QPushButton {
@@ -168,6 +174,22 @@ class WorkflowNodeConfigDialog(QDialog):
             """
         )
         self._init_ui()
+
+    def _apply_combo_dark_style(self, combo: QComboBox):
+        palette = combo.palette()
+        palette.setColor(QPalette.ColorRole.Base, QColor("#2D3748"))
+        palette.setColor(QPalette.ColorRole.Button, QColor("#2D3748"))
+        palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor("white"))
+        combo.setPalette(palette)
+        combo.setStyleSheet("QComboBox { background-color: #2D3748; color: white; }")
+        view = combo.view()
+        if view is not None:
+            view.setPalette(palette)
+            view.setStyleSheet(
+                "QAbstractItemView { background-color: #2D3748; color: white; "
+                "selection-background-color: #007AFF; selection-color: white; }"
+            )
 
     def _init_ui(self):
         """初始化配置表单的基础布局。
@@ -333,12 +355,14 @@ class WorkflowNodeConfigDialog(QDialog):
         for option in JUDGMENT_PROPERTY_OPTIONS:
             attr_combo.addItem(option, option)
         attr_combo.setCurrentText(str((rule or {}).get("attribute") or JUDGMENT_PROPERTY_OPTIONS[0]))
+        self._apply_combo_dark_style(attr_combo)
         fields_row.addWidget(attr_combo, 2)
 
         operator_combo = QComboBox()
         for option in JUDGMENT_OPERATOR_OPTIONS:
             operator_combo.addItem(option, option)
         operator_combo.setCurrentText(str((rule or {}).get("operator") or JUDGMENT_OPERATOR_OPTIONS[0]))
+        self._apply_combo_dark_style(operator_combo)
         fields_row.addWidget(operator_combo, 2)
 
         value_input = QLineEdit()
@@ -361,6 +385,7 @@ class WorkflowNodeConfigDialog(QDialog):
             logic_combo.addItem(option, option)
         logic_combo.setFixedWidth(100)
         logic_combo.setCurrentText(str((rule or {}).get("joiner") or JUDGMENT_LOGIC_OPTIONS[0]))
+        self._apply_combo_dark_style(logic_combo)
         row_layout.addWidget(logic_combo, alignment=Qt.AlignmentFlag.AlignLeft)
 
         row_data = {
@@ -439,6 +464,7 @@ class WorkflowNodeConfigDialog(QDialog):
             if index < 0:
                 index = widget.findText(str(value))
             widget.setCurrentIndex(index if index >= 0 else 0)
+            self._apply_combo_dark_style(widget)
             return widget
         if field_type == "number":
             widget = QSpinBox()
