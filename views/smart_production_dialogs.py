@@ -160,25 +160,24 @@ class WorkflowNodeConfigDialog(QDialog):
 
         if self.node_type == "judgment":
             self._init_judgment_ui(layout)
-            return
-
-        form_layout = QFormLayout()
-        form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
-        form_layout.setFormAlignment(Qt.AlignmentFlag.AlignTop)
-        form_layout.setHorizontalSpacing(18)
-        form_layout.setVerticalSpacing(18)
-
-        for field in NODE_SCHEMAS.get(self.node_type, []):
-            widget = self._create_field_widget(field)
-            self.widgets[field["key"]] = widget
-            form_layout.addRow(field["label"], widget)
-
-        if not self.widgets:
-            empty = QLabel("该节点当前没有可配置项")
-            empty.setStyleSheet("color: rgba(255,255,255,0.6); font-size: 18px;")
-            layout.addWidget(empty)
         else:
-            layout.addLayout(form_layout)
+            form_layout = QFormLayout()
+            form_layout.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+            form_layout.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+            form_layout.setHorizontalSpacing(18)
+            form_layout.setVerticalSpacing(18)
+
+            for field in NODE_SCHEMAS.get(self.node_type, []):
+                widget = self._create_field_widget(field)
+                self.widgets[field["key"]] = widget
+                form_layout.addRow(field["label"], widget)
+
+            if not self.widgets:
+                empty = QLabel("该节点当前没有可配置项")
+                empty.setStyleSheet("color: rgba(255,255,255,0.6); font-size: 18px;")
+                layout.addWidget(empty)
+            else:
+                layout.addLayout(form_layout)
 
         layout.addStretch()
 
@@ -249,7 +248,6 @@ class WorkflowNodeConfigDialog(QDialog):
         self.widgets["no_label"].setText(str(self.node_config.get("no_label") or "否则"))
         card_layout.addWidget(self.widgets["no_label"])
         layout.addWidget(branch_card)
-        layout.addStretch()
 
         self.judgment_condition_rows = []
         for rule in self._get_judgment_rules():
