@@ -31,6 +31,10 @@ from .smart_production_utils import (
 )
 
 class WorkflowNodePickerDialog(QDialog):
+    """工作流节点类型选择弹窗。
+
+    该弹窗用于在远程控制画布中添加新节点时，提供按分组分类的节点选项供用户选择。
+    """
     def __init__(self, parent=None):
         super().__init__(parent)
         self.selected_type = None
@@ -57,6 +61,10 @@ class WorkflowNodePickerDialog(QDialog):
         self._init_ui()
 
     def _init_ui(self):
+        """初始化节点选择弹窗的 UI。
+        
+        通过滚动区域和分组结构，按照 GROUP_ORDER 动态生成每种类型节点的按钮。
+        """
         layout = QVBoxLayout(self)
         layout.setContentsMargins(32, 28, 32, 28)
         layout.setSpacing(22)
@@ -114,6 +122,11 @@ class WorkflowNodePickerDialog(QDialog):
 
 
 class WorkflowNodeConfigDialog(QDialog):
+    """节点详细配置表单弹窗。
+
+    基于 NODE_SCHEMAS 为不同的节点类型动态生成表单字段，
+    并在确认时通过 get_config() 返回收集到的配置字典。
+    """
     def __init__(self, node_type, node_config=None, parent=None):
         super().__init__(parent)
         self.node_type = node_type
@@ -150,6 +163,11 @@ class WorkflowNodeConfigDialog(QDialog):
         self._init_ui()
 
     def _init_ui(self):
+        """初始化配置表单的基础布局。
+        
+        如果是判断节点则调用专用的 _init_judgment_ui，
+        其他节点通过 QFormLayout 基于 NODE_SCHEMAS 循环构建表单行。
+        """
         layout = QVBoxLayout(self)
         layout.setContentsMargins(28, 24, 28, 24)
         layout.setSpacing(20)
@@ -205,6 +223,10 @@ class WorkflowNodeConfigDialog(QDialog):
         layout.addLayout(button_layout)
 
     def _init_judgment_ui(self, layout):
+        """专门为判断节点初始化的定制 UI。
+        
+        包含 "如果" 和 "否则" 两个分支卡片，并在 "如果" 中包含多行条件编辑。
+        """
         layout.addWidget(self._create_section_label("条件分支"))
 
         if_card = QFrame()
@@ -285,6 +307,11 @@ class WorkflowNodeConfigDialog(QDialog):
         return []
 
     def _add_judgment_condition_row(self, rule=None):
+        """向“如果”分支卡片中添加一行条件编辑。
+        
+        每行包含属性、操作符、输入值和删除按钮，
+        多行时通过刷新机制（_refresh_judgment_condition_rows）处理逻辑下拉框和删除按钮的显示。
+        """
         row_frame = QFrame()
         row_frame.setStyleSheet("QFrame { background: transparent; border: none; }")
         row_layout = QVBoxLayout(row_frame)
@@ -353,6 +380,10 @@ class WorkflowNodeConfigDialog(QDialog):
         self._refresh_judgment_condition_rows()
 
     def _refresh_judgment_condition_rows(self):
+        """刷新判断节点中各个条件行的状态。
+        
+        仅当行数 > 1 时显示删除按钮，同时最后一行隐藏逻辑（且/或）下拉框。
+        """
         row_count = len(self.judgment_condition_rows)
         for index, row in enumerate(self.judgment_condition_rows):
             row["joiner"].setVisible(index < row_count - 1)
@@ -412,6 +443,14 @@ class WorkflowNodeConfigDialog(QDialog):
         return widget
 
     def get_config(self):
+        """收集表单中的数据，并返回为字典。
+        
+        对判断节点执行特殊的字段收集（合并条件为表达式等），
+        对其他节点按 NODE_SCHEMAS 获取对应的 QWidget 内容。
+        
+        Returns:
+            dict: 收集并格式化后的配置字典。
+        """
         if self.node_type == "judgment":
             result = copy.deepcopy(self.node_config)
             result["condition_name"] = "判断节点"

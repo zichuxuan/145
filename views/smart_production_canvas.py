@@ -29,6 +29,11 @@ from .smart_production_dialogs import (
 )
 
 class ElseBranchEndSection(QWidget):
+    """判断节点 "否则" 分支的末尾显示区。
+    
+    使用 QPainter 绘制表示流程终止的连线和一个红色的 "结束" 圆点，
+    直观地表明当条件不满足时分支如何流转。
+    """
     def __init__(self, scale_func, parent=None):
         super().__init__(parent)
         self._scale_func = scale_func
@@ -82,6 +87,12 @@ class ElseBranchEndSection(QWidget):
 
 
 class WorkflowCanvasEditor(QWidget):
+    """远程控制工作流可视化编辑器核心画布。
+    
+    采用完全基于 PyQt Layout (QHBoxLayout/QVBoxLayout) 的形式渲染流程，
+    没有使用传统的连线引擎，而是通过递归布局结构展现主线、分支与循环。
+    提供缩放、节点编辑/增删及全屏切换功能。
+    """
     fullscreen_requested = pyqtSignal(bool)
 
     def __init__(self, parent=None):
@@ -196,6 +207,10 @@ class WorkflowCanvasEditor(QWidget):
         return float(self.zoom_factor)
 
     def set_zoom_factor(self, zoom_factor):
+        """设置画布的缩放比例。
+        
+        基于新比例触发全局重新渲染，以便使用 self._scaled 函数按新因子绘制大小。
+        """
         clamped = max(self.min_zoom_factor, min(self.max_zoom_factor, float(zoom_factor)))
         if abs(clamped - self.zoom_factor) < 0.001:
             self._refresh_zoom_controls()
@@ -227,9 +242,23 @@ class WorkflowCanvasEditor(QWidget):
         self.zoom_reset_btn.setEnabled(abs(self.zoom_factor - 1.0) > 0.001)
 
     def _scaled(self, value):
+        """根据当前缩放系数换算像素值。
+        
+        通过该方法实现全部尺寸、间距、字体大小的联动缩放。
+        
+        Args:
+            value (int/float): 基准大小（1.0 缩放比下的大小）。
+        Returns:
+            int: 缩放后的整型像素大小（至少为 1）。
+        """
         return max(1, int(round(value * self.zoom_factor)))
 
     def render_canvas(self):
+        """完全重新渲染工作流画布。
+        
+        清空整个容器的子布局并从 workflow_detail 中提取根 sequence
+        递归地构建整棵组件树。
+        """
         clear_layout(self.canvas_layout)
 
         hint = QLabel("远程控制")
@@ -246,6 +275,14 @@ class WorkflowCanvasEditor(QWidget):
         self.canvas_shell.adjustSize()
 
     def _build_sequence_widget(self, sequence, is_root=False):
+        """将一个流程节点序列转换为水平的 Qt 布局组件。
+        
+        Args:
+            sequence (list): 包含节点配置的字典列表。
+            is_root (bool): 是否是根流程。如果是，会在首尾渲染特殊的 开始/结束 标志。
+        Returns:
+            QWidget: 包含渲染好节点的容器。
+        """
         container = QWidget()
         layout = QHBoxLayout(container)
         layout.setContentsMargins(self._scaled(20), self._scaled(20), self._scaled(20), self._scaled(20))
@@ -410,6 +447,11 @@ class WorkflowCanvasEditor(QWidget):
         return wrapper
 
     def _create_branching_node(self, sequence, index, node, is_root=False):
+        """渲染分支/判断节点。
+        
+        对根分支进行特殊处理（仅显示 '否则' 分支的显式结构，主线继续流动），
+        对非根分支，绘制上下的 '如果' / '否则' 分区。
+        """
         if is_root:
             return self._create_root_judgment_node(sequence, index, node)
         wrapper = QFrame()
@@ -435,6 +477,7 @@ class WorkflowCanvasEditor(QWidget):
         return wrapper
 
     def _create_loop_node(self, sequence, index, node):
+        """渲染循环节点组件，该节点通过一个闭合的可视区（循环体）包含子流程。"""
         wrapper = QFrame()
         wrapper.setStyleSheet("background: transparent; border: none;")
         layout = QVBoxLayout(wrapper)
@@ -481,6 +524,10 @@ class WorkflowCanvasEditor(QWidget):
         return panel
 
     def _add_node(self, sequence, index):
+        """交互：添加一个新节点。
+        
+        首先弹出类型选择器，再弹出配置表单。确认后将节点数据插入 sequence 并重新渲染画布。
+        """
         picker = WorkflowNodePickerDialog(self)
         if picker.exec() != QDialog.DialogCode.Accepted or not picker.selected_type:
             return

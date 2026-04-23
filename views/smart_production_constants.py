@@ -1,3 +1,9 @@
+"""智能生产模块的常量定义与配置 Schema 库。
+
+该文件包含了工作流编辑器（远程控制画布）和配置表单中所需的所有常量数据。
+主要包括下拉选项配置、设备配置字典、以及决定画布渲染和数据提取的 NODE_LIBRARY 与 NODE_SCHEMAS。
+"""
+
 WORKFLOW_TYPE_OPTIONS = [
     ("平台上料", "PLATFORM_FEED"),
     ("输送联动", "CONVEYOR_LINK"),
@@ -27,6 +33,10 @@ DEVICE_SAMPLE_COUNTS = {
     "smart_hopper": 3,
 }
 
+# 节点类型库配置：定义了画布中可用节点的元数据
+#   label: 节点在 UI 上的显示名称
+#   group: 节点所属的分组，用于节点选择弹窗分类
+#   accent: 节点在画布上的左侧边框及部分高亮颜色
 NODE_LIBRARY = {
     "serial": {"label": "串行", "group": "事件", "accent": "#38BDF8"},
     "message": {"label": "消息", "group": "事件", "accent": "#38BDF8"},
@@ -49,6 +59,14 @@ NODE_LIBRARY = {
 
 GROUP_ORDER = ["事件", "网关", "输送设备", "分选设备", "处理设备", "存储设备"]
 
+# 节点配置的字段 Schema：每个节点类型对应的弹窗表单字段定义。
+# 每个列表元素代表一个字段：
+#   key: 字典中保存的值键名
+#   label: 在配置弹窗中的显示名称
+#   type: 表单控件类型 (text, select, textarea, number)
+#   default: 默认值
+#   options (可选): 当 type 为 select 时的选项列表
+#   min/max (可选): 当 type 为 number 时的范围
 NODE_SCHEMAS = {
     "serial": [
         {"key": "name", "label": "串行名称", "type": "text", "default": "串行事件"},

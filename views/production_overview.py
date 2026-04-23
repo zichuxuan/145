@@ -8,9 +8,10 @@ import time
 from views.components.charts import LineChart, BarChart, StorageBar
 
 class StatusCard(QFrame):
-    """右侧设备状态卡片。
+    """右侧设备状态卡片组件。
 
-    用于展示某一类设备的总数、运行数以及对应图标。
+    在总览页中，通过独立的 QFrame 展示某一类设备的总数量、运行数量及代表性图标。
+    支持自定义图标背景色以增强视觉区分度。
     """
     def __init__(self, title, icon_path, total="99", running="99", icon_bg="#1890ff", parent=None):
         super().__init__(parent)

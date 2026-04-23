@@ -4,9 +4,10 @@ from views.smart_production import SmartProduction
 from views.components.dialogs import PasswordDialog
 
 class MainWindow(QMainWindow):
-    """
-    HMI 主窗口
-    View 层：负责集成各功能视图
+    """HMI 桌面客户端的主窗口容器。
+    
+    采用 QStackedWidget 管理主要页面（总览页和智能生产页）的层级关系。
+    接收并响应 ViewModel 的基础状态信号（如 MQTT 连接状态、全局错误）。
     """
     def __init__(self, vm):
         super().__init__()

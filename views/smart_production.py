@@ -40,7 +40,12 @@ from .smart_production_canvas import (
 )
 
 class SmartProduction(QWidget):
-    """智能生产/运维设置页面。"""
+    """智能生产管理页面主容器。
+    
+    承载了工作流/流程配置列表页及新建、编辑的详情页（含表单和画布）。
+    通过 QStackedWidget 实现多页切换（列表 <-> 详情 <-> 全屏画布），
+    并与 DeviceViewModel 强绑定处理异步数据加载与提交。
+    """
 
     def __init__(self, vm, parent=None):
         super().__init__(parent)
@@ -457,6 +462,11 @@ class SmartProduction(QWidget):
             self._exit_workflow_canvas_fullscreen()
 
     def _enter_workflow_canvas_fullscreen(self):
+        """将画布组件切换到全屏模式。
+        
+        通过 setParent(None) 和重新 addWidget，把同一个 WorkflowCanvasEditor 实例
+        从常规布局转移到全屏容器中，从而保留所有状态并利用整块屏幕空间。
+        """
         if self._workflow_canvas_fullscreen:
             return
         self._workflow_canvas_fullscreen = True
@@ -537,6 +547,10 @@ class SmartProduction(QWidget):
         self._set_workflow_tab(0)
 
     def _open_edit_workflow(self, workflow):
+        """进入“编辑工作流”模式。
+        
+        触发异步详情加载流程，并在回调时回显配置与画布。
+        """
         if not isinstance(workflow, dict) or not workflow.get("id"):
             QMessageBox.warning(self, "错误", "流程数据无效，无法编辑")
             return
@@ -545,6 +559,10 @@ class SmartProduction(QWidget):
         self.vm.load_workflow_detail(workflow.get("id"))
 
     def _on_workflow_detail_loaded(self, workflow_detail):
+        """处理工作流详情加载完成的异步回调。
+        
+        回填详情数据到画布及基础配置表单，并切换至详情编辑页。
+        """
         if self._pending_workflow_mode != "edit":
             return
         self._pending_workflow_mode = None
@@ -585,6 +603,13 @@ class SmartProduction(QWidget):
         self.workflow_canvas_editor.set_workflow_detail(workflow.get("workflow_detail") or create_default_workflow_detail())
 
     def _collect_workflow_payload(self, is_draft=False):
+        """收集画布及表单内容，组装成要下发给后端的标准 payload。
+        
+        Args:
+            is_draft (bool): 是否作为草稿保存（影响 enable_or_not 标记）。
+        Returns:
+            dict/None: 校验通过的参数字典，若缺失必填项则返回 None。
+        """
         workflow_name = self.workflow_name_input.text().strip()
         if not workflow_name:
             QMessageBox.warning(self, "错误", "请输入流程名称")
@@ -605,6 +630,11 @@ class SmartProduction(QWidget):
         }
 
     def _submit_workflow(self, is_draft=False):
+        """执行保存工作流的异步请求。
+        
+        基于 self._editing_workflow_id 判断执行更新（update）或创建（add），
+        并进入繁忙状态。
+        """
         payload = self._collect_workflow_payload(is_draft=is_draft)
         if payload is None:
             return
