@@ -1,8 +1,9 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QFrame, QGridLayout, QPushButton, QStackedWidget,
-                             QGraphicsOpacityEffect, QMessageBox)
+                             QGraphicsOpacityEffect)
 from PyQt6.QtCore import Qt, QTimer, QDateTime, pyqtSignal, QEvent, QEasingCurve, QPropertyAnimation, QPoint, QPointF
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QPen, QColor, QPainterPath
+import logging
 import os
 import time
 from pathlib import Path
@@ -782,6 +783,7 @@ class ProductionOverview(QWidget):
     def __init__(self, vm, parent=None):
         super().__init__(parent)
         self.vm = vm
+        self.logger = logging.getLogger("ProductionOverview")
         self.base_path = str(Path(__file__).resolve().parents[1] / "resources" / "images")
         # 记录 logo 点击时间，用于实现“短时间多次点击”的隐藏入口。
         self.click_times = []
@@ -1212,9 +1214,6 @@ class ProductionOverview(QWidget):
         if self.smart_stop_btn:
             self.smart_stop_btn.setEnabled(not is_pending)
 
-    def _show_flow_control_warning(self, message):
-        QMessageBox.warning(self, "提示", message)
-
     def _on_flow_control_started(self, flow_name, action):
         self._set_flow_action_pending(flow_name, action)
 
@@ -1222,17 +1221,16 @@ class ProductionOverview(QWidget):
         flow_name = result.get("flow_name", "") if isinstance(result, dict) else ""
         action = result.get("action", "") if isinstance(result, dict) else ""
         self._set_flow_action_pending(None, None)
-
-        if action == "start":
-            flow_index = self._flow_index_from_name(flow_name)
-            self._apply_running_state(flow_index)
-        elif action == "stop":
-            self._stop_current_flow()
+        self.logger.info(
+            "流程后台指令发送完成: flow=%s action=%s result=%s",
+            flow_name,
+            action,
+            result,
+        )
 
     def _on_flow_control_failed(self, _flow_name, _action, message):
         self._set_flow_action_pending(None, None)
-        self._set_start_btn_state("error")
-        self._show_flow_control_warning(message or "PLC 指令发送失败")
+        self.logger.warning("流程后台指令发送失败: %s", message or "unknown error")
 
     def _set_start_btn_state(self, state):
         if not self.start_btn:
@@ -1262,11 +1260,14 @@ class ProductionOverview(QWidget):
         if self._is_process_running:
             flow_name = self._get_running_flow_name()
             if flow_name:
+                self._stop_current_flow()
                 self.vm.stop_flow(flow_name)
             return
 
         flow_name = self._get_current_flow_name()
         if flow_name:
+            flow_index = self._flow_index_from_name(flow_name)
+            self._apply_running_state(flow_index)
             self.vm.start_flow(flow_name)
 
     def _handle_emergency_stop_click(self):
@@ -1275,6 +1276,7 @@ class ProductionOverview(QWidget):
 
         flow_name = self._get_running_flow_name() if self._is_process_running else self._get_current_flow_name()
         if flow_name:
+            self._stop_current_flow()
             self.vm.stop_flow(flow_name)
 
     def _set_flow_nodes_status(self, status, flow_index=None):
