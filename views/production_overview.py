@@ -1,6 +1,6 @@
 from PyQt6.QtWidgets import (QWidget, QVBoxLayout, QHBoxLayout, QLabel,
                              QFrame, QGridLayout, QPushButton, QStackedWidget,
-                             QGraphicsOpacityEffect)
+                             QGraphicsOpacityEffect, QGraphicsDropShadowEffect)
 from PyQt6.QtCore import Qt, QTimer, QDateTime, pyqtSignal, QEvent, QEasingCurve, QPropertyAnimation, QPoint, QPointF
 from PyQt6.QtGui import QIcon, QPixmap, QPainter, QPen, QColor, QPainterPath
 import logging
@@ -100,9 +100,16 @@ class ProcessCard(QFrame):
         super().__init__(parent)
         self._status = status
         self.setFixedSize(280, 104)
+        
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        shadow.setOffset(0, 6)
+        self.setGraphicsEffect(shadow)
+
         self.setStyleSheet(f"""
             QFrame {{
-                background-color: #2C3036;
+                background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #252A34, stop:1 #1B1E26);
                 border: 1px solid #3A4454;
                 border-radius: 16px;
             }}
@@ -140,7 +147,7 @@ class ProcessCard(QFrame):
             QLabel {{
                 background-color: {accent};
                 border-radius: 22px;
-                border: none;
+                border: 2px solid rgba(255, 255, 255, 0.15);
             }}
         """)
         if icon_path and os.path.exists(icon_path):
@@ -173,12 +180,12 @@ class ProcessCard(QFrame):
         # 左右连接点 (仅视觉)
         self.dot_l = QFrame(self)
         self.dot_l.setFixedSize(12, 12)
-        self.dot_l.setStyleSheet("background-color: #007AFF; border-radius: 6px; border: none;")
+        self.dot_l.setStyleSheet("background-color: #0A84FF; border: 2px solid #1B1E26; border-radius: 6px;")
         self.dot_l.move(-6, 46)
         
         self.dot_r = QFrame(self)
         self.dot_r.setFixedSize(12, 12)
-        self.dot_r.setStyleSheet("background-color: #007AFF; border-radius: 6px; border: none;")
+        self.dot_r.setStyleSheet("background-color: #0A84FF; border: 2px solid #1B1E26; border-radius: 6px;")
         self.dot_r.move(274, 46)
 
     def set_status(self, status):
@@ -193,12 +200,12 @@ class ProcessCard(QFrame):
         self.status_label.setStyleSheet(f"""
             QLabel {{
                 color: {status_color};
-                background-color: {status_color}26;
-                border: 1px solid {status_color}66;
+                background-color: {status_color}1A;
+                border: 1px solid {status_color}4D;
                 border-radius: 14px;
-                padding: 4px 12px;
-                font-size: 14px;
-                font-weight: 600;
+                padding: 4px 14px;
+                font-size: 13px;
+                font-weight: bold;
             }}
         """)
 
@@ -213,6 +220,13 @@ class SmartStageCard(QFrame):
         self._running = running
         self.setFixedSize(240, 130)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        
+        shadow = QGraphicsDropShadowEffect(self)
+        shadow.setBlurRadius(20)
+        shadow.setColor(QColor(0, 0, 0, 80))
+        shadow.setOffset(0, 6)
+        self.setGraphicsEffect(shadow)
+
         self._apply_selected_style()
         layout = QVBoxLayout(self)
         layout.setContentsMargins(14, 12, 14, 12)
@@ -240,20 +254,21 @@ class SmartStageCard(QFrame):
         if self._selected:
             self.setStyleSheet("""
                 QFrame {
-                    background-color: #0A84FF;
-                    border: 1px solid #0A84FF;
+                    background-color: rgba(10, 132, 255, 0.08);
+                    border: 2px solid #0A84FF;
                     border-radius: 12px;
                 }
             """)
         else:
             self.setStyleSheet("""
                 QFrame {
-                    background-color: #1A1F26;
-                    border: 1px solid #2A3038;
+                    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #252A34, stop:1 #1B1E26);
+                    border: 1px solid #3A4454;
                     border-radius: 12px;
                 }
                 QFrame:hover {
-                    border: 1px solid #3A4658;
+                    border: 1px solid #5C6A82;
+                    background-color: qlineargradient(x1:0, y1:0, x2:1, y2:1, stop:0 #2C323E, stop:1 #222630);
                 }
             """)
 
@@ -264,12 +279,12 @@ class SmartStageCard(QFrame):
     def set_running(self, running):
         self._running = running
         if running:
-            status_bg = "rgba(0, 188, 101, 0.2)"
-            status_border = "rgba(0, 188, 101, 0.42)"
+            status_bg = "rgba(0, 208, 132, 0.15)"
+            status_border = "rgba(0, 208, 132, 0.42)"
             status_text = "#00D084"
             status = "运行中"
         else:
-            status_bg = "rgba(140, 140, 140, 0.2)"
+            status_bg = "rgba(140, 140, 140, 0.15)"
             status_border = "rgba(140, 140, 140, 0.45)"
             status_text = "#BFBFBF"
             status = "未启动"
@@ -281,9 +296,9 @@ class SmartStageCard(QFrame):
                 background-color: {status_bg};
                 border: 1px solid {status_border};
                 border-radius: 10px;
-                padding: 1px 8px;
+                padding: 2px 10px;
                 font-size: 11px;
-                font-weight: 600;
+                font-weight: bold;
             }}
         """)
 
@@ -359,7 +374,7 @@ class ProductionFlowCanvas1(QWidget):
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
         
-        pen = QPen(QColor("#007AFF"), 3)
+        pen = QPen(QColor("#0A84FF"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
 
         # 绘制第一行连线
@@ -480,7 +495,7 @@ class ProductionFlowCanvas2(QWidget):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#007AFF"), 3)
+        pen = QPen(QColor("#0A84FF"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
 
         # 第一行连线
@@ -599,7 +614,7 @@ class ProductionFlowCanvas3(QWidget):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#007AFF"), 3)
+        pen = QPen(QColor("#0A84FF"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
 
         # 第一行连线
@@ -717,7 +732,7 @@ class ProductionFlowCanvas4(QWidget):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#007AFF"), 3)
+        pen = QPen(QColor("#0A84FF"), 3, Qt.PenStyle.SolidLine, Qt.PenCapStyle.RoundCap, Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
 
         # 第一行连线
