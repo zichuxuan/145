@@ -292,12 +292,90 @@ class SmartStageCard(QFrame):
         super().mousePressEvent(event)
 
 
-class ProductionFlowCanvas1(QWidget):
-    """1#平台智能上料流程画布。"""
+class BaseFlowCanvas(QWidget):
+    """流程图基类，提供带有流动动画和曼哈顿圆角路由的连线绘制功能。"""
     def __init__(self, parent=None):
         super().__init__(parent)
         self.base_img_path = str(Path(__file__).resolve().parents[1] / "resources" / "images")
         self.wf_img_path = os.path.join(self.base_img_path, "workflow")
+        self.dash_offset = 0
+        self.animation_timer = QTimer(self)
+        self.animation_timer.timeout.connect(self._update_dash_offset)
+        self.animation_timer.start(50)
+
+    def _update_dash_offset(self):
+        self.dash_offset -= 1
+        if self.dash_offset < -20:
+            self.dash_offset = 0
+        self.update()
+
+    def _get_node_point(self, node, side):
+        if side == "right":
+            if hasattr(node, "dot_r"):
+                return QPointF(node.mapTo(self, node.dot_r.geometry().center()))
+            return QPointF(node.geometry().center() + QPoint(38, 0))
+        else:
+            if hasattr(node, "dot_l"):
+                return QPointF(node.mapTo(self, node.dot_l.geometry().center()))
+            return QPointF(node.geometry().center() - QPoint(38, 0))
+
+    def _get_orthogonal_path(self, p1, p2, path_type="straight", offset=60):
+        path = QPainterPath()
+        path.moveTo(p1)
+        r = 16  # corner radius
+        
+        if path_type == "straight":
+            path.lineTo(p2)
+        elif path_type == "right_to_right":
+            mid_x = max(p1.x(), p2.x()) + offset
+            dy = 1 if p2.y() > p1.y() else -1
+            path.lineTo(mid_x - r, p1.y())
+            path.quadTo(mid_x, p1.y(), mid_x, p1.y() + r * dy)
+            path.lineTo(mid_x, p2.y() - r * dy)
+            path.quadTo(mid_x, p2.y(), mid_x - r, p2.y())
+            path.lineTo(p2)
+        elif path_type == "left_to_left":
+            mid_x = min(p1.x(), p2.x()) - offset
+            dy = 1 if p2.y() > p1.y() else -1
+            path.lineTo(mid_x + r, p1.y())
+            path.quadTo(mid_x, p1.y(), mid_x, p1.y() + r * dy)
+            path.lineTo(mid_x, p2.y() - r * dy)
+            path.quadTo(mid_x, p2.y(), mid_x + r, p2.y())
+            path.lineTo(p2)
+        return path
+
+    def _draw_animated_path(self, painter, path):
+        # 实线底色
+        bg_pen = QPen(QColor(0, 122, 255, 60), 3)
+        bg_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(bg_pen)
+        painter.drawPath(path)
+        
+        # 动画虚线
+        anim_pen = QPen(QColor(0, 122, 255, 255), 3)
+        anim_pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        anim_pen.setDashPattern([6, 6])
+        anim_pen.setDashOffset(self.dash_offset)
+        painter.setPen(anim_pen)
+        painter.drawPath(path)
+
+    def _draw_connection(self, painter, node_a, node_b):
+        p1 = self._get_node_point(node_a, "right")
+        p2 = self._get_node_point(node_b, "left")
+        path = self._get_orthogonal_path(p1, p2, "straight")
+        self._draw_animated_path(painter, path)
+
+    def _draw_connection_reverse(self, painter, node_a, node_b):
+        p1 = self._get_node_point(node_a, "left")
+        p2 = self._get_node_point(node_b, "right")
+        path = self._get_orthogonal_path(p1, p2, "straight")
+        self._draw_animated_path(painter, path)
+
+
+class ProductionFlowCanvas1(BaseFlowCanvas):
+    """1#平台智能上料流程画布。"""
+    def __init__(self, parent=None):
+        super().__init__(parent)
         self._init_ui()
 
     def _init_ui(self):
@@ -357,9 +435,6 @@ class ProductionFlowCanvas1(QWidget):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        pen = QPen(QColor("#007AFF"), 3)
-        painter.setPen(pen)
 
         # 绘制第一行连线
         self._draw_connection(painter, self.start_node, self.node1)
@@ -368,47 +443,26 @@ class ProductionFlowCanvas1(QWidget):
         self._draw_connection(painter, self.node3, self.node4)
 
         # 绘制 S 形转折连线 (从 node4 右侧到 node6 右侧)
-        p4 = QPointF(self.node4.mapTo(self, self.node4.dot_r.geometry().center()))
-        p6 = QPointF(self.node6.mapTo(self, self.node6.dot_r.geometry().center()))
-        
-        # 绘制简单的半圆弧或三次贝塞尔曲线
-        mid_x = max(p4.x(), p6.x()) + 80
-        curve_path = QPainterPath()
-        curve_path.moveTo(p4)
-        curve_path.cubicTo(mid_x, p4.y(), mid_x, p6.y(), p6.x(), p6.y())
-        painter.drawPath(curve_path)
+        p4 = self._get_node_point(self.node4, "right")
+        p6 = self._get_node_point(self.node6, "right")
+        path_curve = self._get_orthogonal_path(p4, p6, "right_to_right", offset=60)
+        self._draw_animated_path(painter, path_curve)
 
         # 绘制第二行连线 (逆向: 吹瓶机 -> 204_2 -> 001 -> 结束)
-        self._draw_connection(painter, self.node7, self.node6)
-        self._draw_connection(painter, self.node8, self.node7)
+        self._draw_connection_reverse(painter, self.node6, self.node7)
+        self._draw_connection_reverse(painter, self.node7, self.node8)
         
         # 结束节点的连线从 001 的左侧到结束节点的右侧
-        p8_l = QPointF(self.node8.mapTo(self, self.node8.dot_l.geometry().center()))
-        p_end_r = QPointF(self.end_node.geometry().center() + QPoint(38, 0))
-        painter.drawLine(p8_l, p_end_r)
-
-    def _draw_connection(self, painter, node_a, node_b):
-        # 获取节点 a 的右连接点 and 节点 b 的左连接点
-        if hasattr(node_a, "dot_r"):
-            p1 = QPointF(node_a.mapTo(self, node_a.dot_r.geometry().center()))
-        else:
-            # 对于 CircleMark
-            p1 = QPointF(node_a.geometry().center() + QPoint(38, 0))
-            
-        if hasattr(node_b, "dot_l"):
-            p2 = QPointF(node_b.mapTo(self, node_b.dot_l.geometry().center()))
-        else:
-            p2 = QPointF(node_b.geometry().center() - QPoint(38, 0))
-            
-        painter.drawLine(p1, p2)
+        p8_l = self._get_node_point(self.node8, "left")
+        p_end_r = self._get_node_point(self.end_node, "right")
+        path_end = self._get_orthogonal_path(p8_l, p_end_r, "straight")
+        self._draw_animated_path(painter, path_end)
 
 
-class ProductionFlowCanvas2(QWidget):
+class ProductionFlowCanvas2(BaseFlowCanvas):
     """三色瓶分选流程画布。"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.base_img_path = str(Path(__file__).resolve().parents[1] / "resources" / "images")
-        self.wf_img_path = os.path.join(self.base_img_path, "workflow")
         self._init_ui()
 
     def _init_ui(self):
@@ -479,8 +533,6 @@ class ProductionFlowCanvas2(QWidget):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#007AFF"), 3)
-        painter.setPen(pen)
 
         # 第一行连线
         self._draw_connection(painter, self.start_node, self.node1)
@@ -489,13 +541,10 @@ class ProductionFlowCanvas2(QWidget):
         self._draw_connection(painter, self.node3, self.node4)
 
         # 第一行到第二行 (N4右 -> N8右)
-        p4 = QPointF(self.node4.mapTo(self, self.node4.dot_r.geometry().center()))
-        p8 = QPointF(self.node8.mapTo(self, self.node8.dot_r.geometry().center()))
-        mid_x1 = max(p4.x(), p8.x()) + 60
-        curve_path1 = QPainterPath()
-        curve_path1.moveTo(p4)
-        curve_path1.cubicTo(mid_x1, p4.y(), mid_x1, p8.y(), p8.x(), p8.y())
-        painter.drawPath(curve_path1)
+        p4 = self._get_node_point(self.node4, "right")
+        p8 = self._get_node_point(self.node8, "right")
+        path_curve1 = self._get_orthogonal_path(p4, p8, "right_to_right", offset=60)
+        self._draw_animated_path(painter, path_curve1)
 
         # 第二行连线 (逆向)
         self._draw_connection_reverse(painter, self.node8, self.node7)
@@ -503,45 +552,25 @@ class ProductionFlowCanvas2(QWidget):
         self._draw_connection_reverse(painter, self.node6, self.node5)
 
         # 第二行到第三行 (N5左 -> N9左)
-        p5 = QPointF(self.node5.mapTo(self, self.node5.dot_l.geometry().center()))
-        p9 = QPointF(self.node9.mapTo(self, self.node9.dot_l.geometry().center()))
-        mid_x2 = min(p5.x(), p9.x()) - 60
-        curve_path2 = QPainterPath()
-        curve_path2.moveTo(p5)
-        curve_path2.cubicTo(mid_x2, p5.y(), mid_x2, p9.y(), p9.x(), p9.y())
-        painter.drawPath(curve_path2)
+        p5 = self._get_node_point(self.node5, "left")
+        p9 = self._get_node_point(self.node9, "left")
+        path_curve2 = self._get_orthogonal_path(p5, p9, "left_to_left", offset=60)
+        self._draw_animated_path(painter, path_curve2)
 
         # 第三行连线
         self._draw_connection(painter, self.node9, self.node10)
         
         # 最后一个节点到结束节点
-        p10 = QPointF(self.node10.mapTo(self, self.node10.dot_r.geometry().center()))
-        p_end = QPointF(self.end_node.geometry().center() - QPoint(38, 0))
-        painter.drawLine(p10, p_end)
-
-    def _draw_connection(self, painter, node_a, node_b):
-        if hasattr(node_a, "dot_r"):
-            p1 = QPointF(node_a.mapTo(self, node_a.dot_r.geometry().center()))
-        else:
-            p1 = QPointF(node_a.geometry().center() + QPoint(38, 0))
-        if hasattr(node_b, "dot_l"):
-            p2 = QPointF(node_b.mapTo(self, node_b.dot_l.geometry().center()))
-        else:
-            p2 = QPointF(node_b.geometry().center() - QPoint(38, 0))
-        painter.drawLine(p1, p2)
-
-    def _draw_connection_reverse(self, painter, node_a, node_b):
-        p1 = QPointF(node_a.mapTo(self, node_a.dot_l.geometry().center()))
-        p2 = QPointF(node_b.mapTo(self, node_b.dot_r.geometry().center()))
-        painter.drawLine(p1, p2)
+        p10 = self._get_node_point(self.node10, "right")
+        p_end = self._get_node_point(self.end_node, "left")
+        path_end = self._get_orthogonal_path(p10, p_end, "straight")
+        self._draw_animated_path(painter, path_end)
 
 
-class ProductionFlowCanvas3(QWidget):
+class ProductionFlowCanvas3(BaseFlowCanvas):
     """3A瓶脱标工艺流程画布。"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.base_img_path = str(Path(__file__).resolve().parents[1] / "resources" / "images")
-        self.wf_img_path = os.path.join(self.base_img_path, "workflow")
         self._init_ui()
 
     def _init_ui(self):
@@ -598,8 +627,6 @@ class ProductionFlowCanvas3(QWidget):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#007AFF"), 3)
-        painter.setPen(pen)
 
         # 第一行连线
         self._draw_connection(painter, self.start_node, self.node1)
@@ -608,46 +635,26 @@ class ProductionFlowCanvas3(QWidget):
         self._draw_connection(painter, self.node3, self.node4)
 
         # 第一行到第二行 (N4右 -> N5右)
-        p4 = QPointF(self.node4.mapTo(self, self.node4.dot_r.geometry().center()))
-        p5 = QPointF(self.node5.mapTo(self, self.node5.dot_r.geometry().center()))
-        mid_x = max(p4.x(), p5.x()) + 60
-        curve_path = QPainterPath()
-        curve_path.moveTo(p4)
-        curve_path.cubicTo(mid_x, p4.y(), mid_x, p5.y(), p5.x(), p5.y())
-        painter.drawPath(curve_path)
+        p4 = self._get_node_point(self.node4, "right")
+        p5 = self._get_node_point(self.node5, "right")
+        path_curve = self._get_orthogonal_path(p4, p5, "right_to_right", offset=60)
+        self._draw_animated_path(painter, path_curve)
 
         # 第二行连线 (逆向)
         self._draw_connection_reverse(painter, self.node5, self.node6)
         self._draw_connection_reverse(painter, self.node6, self.node7)
         
         # 最后一个节点到结束节点
-        p7 = QPointF(self.node7.mapTo(self, self.node7.dot_l.geometry().center()))
-        p_end = QPointF(self.end_node.geometry().center() + QPoint(38, 0)) # 结束节点在左侧，所以接它的右边缘，等下改这里。由于 end_node 在最左，所以是从 node7 左连到 end_node 右。
-        painter.drawLine(p7, p_end)
-
-    def _draw_connection(self, painter, node_a, node_b):
-        if hasattr(node_a, "dot_r"):
-            p1 = QPointF(node_a.mapTo(self, node_a.dot_r.geometry().center()))
-        else:
-            p1 = QPointF(node_a.geometry().center() + QPoint(38, 0))
-        if hasattr(node_b, "dot_l"):
-            p2 = QPointF(node_b.mapTo(self, node_b.dot_l.geometry().center()))
-        else:
-            p2 = QPointF(node_b.geometry().center() - QPoint(38, 0))
-        painter.drawLine(p1, p2)
-
-    def _draw_connection_reverse(self, painter, node_a, node_b):
-        p1 = QPointF(node_a.mapTo(self, node_a.dot_l.geometry().center()))
-        p2 = QPointF(node_b.mapTo(self, node_b.dot_r.geometry().center()))
-        painter.drawLine(p1, p2)
+        p7 = self._get_node_point(self.node7, "left")
+        p_end = self._get_node_point(self.end_node, "right") # 结束节点在左侧，所以接它的右边缘
+        path_end = self._get_orthogonal_path(p7, p_end, "straight")
+        self._draw_animated_path(painter, path_end)
 
 
-class ProductionFlowCanvas4(QWidget):
+class ProductionFlowCanvas4(BaseFlowCanvas):
     """绿瓶脱标工艺流程画布。"""
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.base_img_path = str(Path(__file__).resolve().parents[1] / "resources" / "images")
-        self.wf_img_path = os.path.join(self.base_img_path, "workflow")
         self._init_ui()
 
     def _init_ui(self):
@@ -716,8 +723,6 @@ class ProductionFlowCanvas4(QWidget):
         super().paintEvent(event)
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor("#007AFF"), 3)
-        painter.setPen(pen)
 
         # 第一行连线
         self._draw_connection(painter, self.start_node, self.node1)
@@ -726,13 +731,10 @@ class ProductionFlowCanvas4(QWidget):
         self._draw_connection(painter, self.node3, self.node4)
 
         # 第一行到第二行 (N4右 -> N5右)
-        p4 = QPointF(self.node4.mapTo(self, self.node4.dot_r.geometry().center()))
-        p5 = QPointF(self.node5.mapTo(self, self.node5.dot_r.geometry().center()))
-        mid_x = max(p4.x(), p5.x()) + 60
-        curve_path1 = QPainterPath()
-        curve_path1.moveTo(p4)
-        curve_path1.cubicTo(mid_x, p4.y(), mid_x, p5.y(), p5.x(), p5.y())
-        painter.drawPath(curve_path1)
+        p4 = self._get_node_point(self.node4, "right")
+        p5 = self._get_node_point(self.node5, "right")
+        path_curve1 = self._get_orthogonal_path(p4, p5, "right_to_right", offset=60)
+        self._draw_animated_path(painter, path_curve1)
 
         # 第二行连线 (逆向)
         self._draw_connection_reverse(painter, self.node5, self.node6)
@@ -740,32 +742,13 @@ class ProductionFlowCanvas4(QWidget):
         self._draw_connection_reverse(painter, self.node7, self.node8)
 
         # 第二行到第三行 (N8左 -> N9左)
-        p8 = QPointF(self.node8.mapTo(self, self.node8.dot_l.geometry().center()))
-        p9 = QPointF(self.node9.mapTo(self, self.node9.dot_l.geometry().center()))
-        mid_x2 = min(p8.x(), p9.x()) - 60
-        curve_path2 = QPainterPath()
-        curve_path2.moveTo(p8)
-        curve_path2.cubicTo(mid_x2, p8.y(), mid_x2, p9.y(), p9.x(), p9.y())
-        painter.drawPath(curve_path2)
+        p8 = self._get_node_point(self.node8, "left")
+        p9 = self._get_node_point(self.node9, "left")
+        path_curve2 = self._get_orthogonal_path(p8, p9, "left_to_left", offset=60)
+        self._draw_animated_path(painter, path_curve2)
 
         # 第三行连线
         self._draw_connection(painter, self.node9, self.end_node)
-
-    def _draw_connection(self, painter, node_a, node_b):
-        if hasattr(node_a, "dot_r"):
-            p1 = QPointF(node_a.mapTo(self, node_a.dot_r.geometry().center()))
-        else:
-            p1 = QPointF(node_a.geometry().center() + QPoint(38, 0))
-        if hasattr(node_b, "dot_l"):
-            p2 = QPointF(node_b.mapTo(self, node_b.dot_l.geometry().center()))
-        else:
-            p2 = QPointF(node_b.geometry().center() - QPoint(38, 0))
-        painter.drawLine(p1, p2)
-
-    def _draw_connection_reverse(self, painter, node_a, node_b):
-        p1 = QPointF(node_a.mapTo(self, node_a.dot_l.geometry().center()))
-        p2 = QPointF(node_b.mapTo(self, node_b.dot_r.geometry().center()))
-        painter.drawLine(p1, p2)
 
 
 class ProductionOverview(QWidget):
