@@ -1,6 +1,7 @@
 import copy
 from functools import partial
 from PyQt6.QtCore import Qt
+from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
     QDialog,
     QVBoxLayout,
@@ -14,13 +15,12 @@ from PyQt6.QtWidgets import (
     QTextEdit,
     QComboBox,
     QSpinBox,
-    QDialogButtonBox,
     QFrame,
 )
 from .smart_production_constants import (
     GROUP_ORDER,
     NODE_LIBRARY,
-    NODE_SCHEMAS,
+    get_node_schema,
     JUDGMENT_PROPERTY_OPTIONS,
     JUDGMENT_OPERATOR_OPTIONS,
     JUDGMENT_LOGIC_OPTIONS,
@@ -139,7 +139,7 @@ class WorkflowNodeConfigDialog(QDialog):
             """
             QDialog { background-color: #1C212B; color: white; border: 1px solid rgba(255,255,255,0.15); border-radius: 16px; }
             QLabel { color: white; font-size: 18px; }
-            QLineEdit, QTextEdit, QComboBox, QSpinBox {
+            QLineEdit, QTextEdit, QSpinBox {
                 background-color: rgba(255,255,255,0.08);
                 color: white;
                 border: 1px solid rgba(255,255,255,0.18);
@@ -147,10 +147,22 @@ class WorkflowNodeConfigDialog(QDialog):
                 padding: 10px 12px;
                 font-size: 18px;
             }
+            QComboBox {
+                background-color: #2D3748;
+                color: white;
+                border: 1px solid rgba(255,255,255,0.18);
+                border-radius: 8px;
+                padding: 10px 12px;
+            }
+            QComboBox::drop-down {
+                border: none;
+            }
             QComboBox QAbstractItemView {
-                background-color: #1F2937;
+                background-color: #2D3748;
                 color: white;
                 selection-background-color: #007AFF;
+                selection-color: white;
+                border: 1px solid rgba(255,255,255,0.18);
             }
             QDialogButtonBox QPushButton {
                 min-width: 120px;
@@ -161,6 +173,22 @@ class WorkflowNodeConfigDialog(QDialog):
             """
         )
         self._init_ui()
+
+    def _apply_combo_dark_style(self, combo: QComboBox):
+        palette = combo.palette()
+        palette.setColor(QPalette.ColorRole.Base, QColor("#2D3748"))
+        palette.setColor(QPalette.ColorRole.Button, QColor("#2D3748"))
+        palette.setColor(QPalette.ColorRole.Text, QColor("white"))
+        palette.setColor(QPalette.ColorRole.ButtonText, QColor("white"))
+        combo.setPalette(palette)
+        combo.setStyleSheet("QComboBox { background-color: #2D3748; color: white; }")
+        view = combo.view()
+        if view is not None:
+            view.setPalette(palette)
+            view.setStyleSheet(
+                "QAbstractItemView { background-color: #2D3748; color: white; "
+                "selection-background-color: #007AFF; selection-color: white; }"
+            )
 
     def _init_ui(self):
         """初始化配置表单的基础布局。
@@ -187,7 +215,7 @@ class WorkflowNodeConfigDialog(QDialog):
             form_layout.setHorizontalSpacing(18)
             form_layout.setVerticalSpacing(18)
 
-            for field in NODE_SCHEMAS.get(self.node_type, []):
+            for field in get_node_schema(self.node_type):
                 widget = self._create_field_widget(field)
                 self.widgets[field["key"]] = widget
                 form_layout.addRow(field["label"], widget)
@@ -286,6 +314,21 @@ class WorkflowNodeConfigDialog(QDialog):
         
         layout.addWidget(else_card)
 
+        visibility_field = next(
+            (field for field in get_node_schema(self.node_type) if field.get("key") == "is_visible"),
+            None,
+        )
+        if visibility_field:
+            visibility_form = QFormLayout()
+            visibility_form.setLabelAlignment(Qt.AlignmentFlag.AlignLeft)
+            visibility_form.setFormAlignment(Qt.AlignmentFlag.AlignTop)
+            visibility_form.setHorizontalSpacing(18)
+            visibility_form.setVerticalSpacing(18)
+            visibility_widget = self._create_field_widget(visibility_field)
+            self.widgets[visibility_field["key"]] = visibility_widget
+            visibility_form.addRow(visibility_field["label"], visibility_widget)
+            layout.addLayout(visibility_form)
+
         self.judgment_condition_rows = []
         for rule in self._get_judgment_rules():
             self._add_judgment_condition_row(rule)
@@ -326,12 +369,14 @@ class WorkflowNodeConfigDialog(QDialog):
         for option in JUDGMENT_PROPERTY_OPTIONS:
             attr_combo.addItem(option, option)
         attr_combo.setCurrentText(str((rule or {}).get("attribute") or JUDGMENT_PROPERTY_OPTIONS[0]))
+        self._apply_combo_dark_style(attr_combo)
         fields_row.addWidget(attr_combo, 2)
 
         operator_combo = QComboBox()
         for option in JUDGMENT_OPERATOR_OPTIONS:
             operator_combo.addItem(option, option)
         operator_combo.setCurrentText(str((rule or {}).get("operator") or JUDGMENT_OPERATOR_OPTIONS[0]))
+        self._apply_combo_dark_style(operator_combo)
         fields_row.addWidget(operator_combo, 2)
 
         value_input = QLineEdit()
@@ -339,10 +384,10 @@ class WorkflowNodeConfigDialog(QDialog):
         value_input.setText(str((rule or {}).get("value") or ""))
         fields_row.addWidget(value_input, 3)
 
-        delete_btn = QPushButton("🗑️")
-        delete_btn.setFixedSize(40, 40)
+        delete_btn = QPushButton("删除")
+        delete_btn.setFixedSize(60, 40)
         delete_btn.setStyleSheet(
-            "background-color: transparent; color: #EF4444; border: none; font-size: 20px;"
+            "background-color: rgba(239,68,68,0.12); color: #F87171; border-radius: 8px; border: 1px solid rgba(239,68,68,0.24); font-size: 16px;"
         )
         delete_btn.setVisible(False)
         fields_row.addWidget(delete_btn)
@@ -354,6 +399,7 @@ class WorkflowNodeConfigDialog(QDialog):
             logic_combo.addItem(option, option)
         logic_combo.setFixedWidth(100)
         logic_combo.setCurrentText(str((rule or {}).get("joiner") or JUDGMENT_LOGIC_OPTIONS[0]))
+        self._apply_combo_dark_style(logic_combo)
         row_layout.addWidget(logic_combo, alignment=Qt.AlignmentFlag.AlignLeft)
 
         row_data = {
@@ -427,11 +473,19 @@ class WorkflowNodeConfigDialog(QDialog):
         if field_type == "select":
             widget = QComboBox()
             for option in field.get("options", []):
-                widget.addItem(str(option), option)
+                label = option
+                data = option
+                if isinstance(option, dict):
+                    label = option.get("label", option.get("value", ""))
+                    data = option.get("value", label)
+                elif isinstance(option, (list, tuple)) and len(option) >= 2:
+                    label, data = option[0], option[1]
+                widget.addItem(str(label), data)
             index = widget.findData(value)
             if index < 0:
                 index = widget.findText(str(value))
             widget.setCurrentIndex(index if index >= 0 else 0)
+            self._apply_combo_dark_style(widget)
             return widget
         if field_type == "number":
             widget = QSpinBox()
@@ -458,15 +512,20 @@ class WorkflowNodeConfigDialog(QDialog):
             result["no_label"] = "否则"
             result["condition_rules"] = self._collect_judgment_rules()
             result["condition_expression"] = self._format_judgment_expression(result["condition_rules"])
+            visibility_widget = self.widgets.get("is_visible")
+            if isinstance(visibility_widget, QComboBox):
+                current_data = visibility_widget.currentData()
+                result["is_visible"] = current_data if current_data is not None else visibility_widget.currentText().strip()
             return result
         result = copy.deepcopy(self.node_config)
-        for field in NODE_SCHEMAS.get(self.node_type, []):
+        for field in get_node_schema(self.node_type):
             key = field["key"]
             widget = self.widgets.get(key)
             if isinstance(widget, QTextEdit):
                 result[key] = widget.toPlainText().strip()
             elif isinstance(widget, QComboBox):
-                result[key] = widget.currentData() or widget.currentText().strip()
+                current_data = widget.currentData()
+                result[key] = current_data if current_data is not None else widget.currentText().strip()
             elif isinstance(widget, QSpinBox):
                 result[key] = int(widget.value())
             elif isinstance(widget, QLineEdit):

@@ -1,3 +1,5 @@
+import logging
+
 from PyQt6.QtWidgets import QMainWindow, QMessageBox, QStackedWidget
 from views.production_overview import ProductionOverview
 from views.smart_production import SmartProduction
@@ -12,6 +14,7 @@ class MainWindow(QMainWindow):
     def __init__(self, vm):
         super().__init__()
         self.vm = vm
+        self.logger = logging.getLogger("MainWindow")
         self._init_ui()
         self._bind_viewmodel()
 
@@ -65,4 +68,7 @@ class MainWindow(QMainWindow):
         pass
 
     def _show_error(self, message: str):
+        if isinstance(message, str) and message.startswith("API 错误:"):
+            self.logger.warning("静默忽略 API 错误弹窗: %s", message)
+            return
         QMessageBox.critical(self, "系统错误", message)

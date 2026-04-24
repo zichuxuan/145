@@ -1,5 +1,4 @@
 import sys
-import json
 import logging
 from pathlib import Path
 from PyQt6.QtWidgets import QApplication
@@ -7,6 +6,7 @@ from PyQt6.QtWidgets import QApplication
 # 导入各层组件
 from infrastructure.mqtt_client import MqttClient
 from services.device_service import DeviceService
+from services.plc_control_service import PlcControlService
 from viewmodels.device_viewmodel import DeviceViewModel
 from views.main_window import MainWindow
 
@@ -80,9 +80,10 @@ def main():
     
     # 3. 业务服务层实例化
     device_service = DeviceService()
+    plc_control_service = PlcControlService()
     
     # 4. ViewModel 层实例化 (注入基础设施和服务)
-    device_vm = DeviceViewModel(mqtt_client, device_service)
+    device_vm = DeviceViewModel(mqtt_client, device_service, plc_control_service)
     
     # 5. View 层实例化
     window = MainWindow(device_vm)

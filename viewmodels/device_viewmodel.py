@@ -57,11 +57,15 @@ class DeviceViewModel(BaseViewModel):
     workflows_loaded = pyqtSignal(list)
     workflow_detail_loaded = pyqtSignal(dict)
     workflow_operation_finished = pyqtSignal(bool, str)
+    flow_control_started = pyqtSignal(str, str)
+    flow_control_succeeded = pyqtSignal(dict)
+    flow_control_failed = pyqtSignal(str, str, str)
     
-    def __init__(self, mqtt_client, device_service):
+    def __init__(self, mqtt_client, device_service, plc_control_service):
         super().__init__()
         self.mqtt_client = mqtt_client
         self.device_service = device_service
+        self.plc_control_service = plc_control_service
         # 使用全局线程池复用线程资源，避免频繁创建销毁后台线程。
         self.thread_pool = QThreadPool.globalInstance()
         
@@ -330,6 +334,29 @@ class DeviceViewModel(BaseViewModel):
             self.workflow_operation_finished.emit(True, success_msg)
         else:
             self.workflow_operation_finished.emit(False, "工作流操作失败，请重试")
+
+    @pyqtSlot(str)
+    def start_flow(self, flow_name):
+        self._submit_flow_control(flow_name, "start")
+
+    @pyqtSlot(str)
+    def stop_flow(self, flow_name):
+        self._submit_flow_control(flow_name, "stop")
+
+    def _submit_flow_control(self, flow_name, action):
+        normalized_flow_name = str(flow_name or "").strip()
+        if not normalized_flow_name:
+            self.flow_control_failed.emit("", action, "流程名称不能为空")
+            return
+
+        self.flow_control_started.emit(normalized_flow_name, action)
+        worker_func = self.plc_control_service.start_flow if action == "start" else self.plc_control_service.stop_flow
+        worker = ApiWorker(worker_func, normalized_flow_name)
+        worker.signals.finished.connect(self.flow_control_succeeded.emit)
+        worker.signals.error.connect(
+            lambda message, fn=normalized_flow_name, act=action: self.flow_control_failed.emit(fn, act, message)
+        )
+        self.thread_pool.start(worker)
 
     @pyqtSlot()
     def toggle_connection(self):

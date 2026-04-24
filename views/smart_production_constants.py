@@ -4,6 +4,8 @@
 主要包括下拉选项配置、设备配置字典、以及决定画布渲染和数据提取的 NODE_LIBRARY 与 NODE_SCHEMAS。
 """
 
+import copy
+
 WORKFLOW_TYPE_OPTIONS = [
     ("平台上料", "PLATFORM_FEED"),
     ("输送联动", "CONVEYOR_LINK"),
@@ -17,6 +19,7 @@ MESSAGE_TYPE_OPTIONS = ["系统消息", "告警消息", "提示消息"]
 JUDGMENT_PROPERTY_OPTIONS = ["状态", "完成信号", "告警信号", "结果输出"]
 JUDGMENT_OPERATOR_OPTIONS = ["等于", "不等于", "大于", "大于等于", "小于", "小于等于", "包含"]
 JUDGMENT_LOGIC_OPTIONS = ["且", "或"]
+VISIBILITY_OPTIONS = [("显示", True), ("隐藏", False)]
 
 DEVICE_SAMPLE_COUNTS = {
     "screw_conveyor": 3,
@@ -153,3 +156,23 @@ NODE_SCHEMAS = {
         {"key": "output_property", "label": "输出属性", "type": "select", "options": OUTPUT_PROPERTY_OPTIONS, "default": "状态"},
     ],
 }
+
+COMMON_NODE_SCHEMA_FIELDS = [
+    {
+        "key": "is_visible",
+        "label": "是否显示",
+        "type": "select",
+        "options": VISIBILITY_OPTIONS,
+        "default": True,
+    }
+]
+
+
+def get_node_schema(node_type):
+    """返回节点类型的完整配置 Schema。
+
+    在各节点专有字段后统一追加通用字段，确保节点弹窗和默认配置保持一致。
+    """
+    schema = copy.deepcopy(NODE_SCHEMAS.get(node_type, []))
+    schema.extend(copy.deepcopy(COMMON_NODE_SCHEMA_FIELDS))
+    return schema

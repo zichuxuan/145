@@ -8,7 +8,7 @@ from uuid import uuid4
 from .smart_production_constants import (
     WORKFLOW_TYPE_OPTIONS,
     NODE_LIBRARY,
-    NODE_SCHEMAS,
+    get_node_schema,
 )
 
 def clear_layout(layout):
@@ -50,7 +50,7 @@ def build_default_config(node_type):
         dict: 包含各字段默认值的字典配置。
     """
     config = {}
-    for field in NODE_SCHEMAS.get(node_type, []):
+    for field in get_node_schema(node_type):
         config[field["key"]] = copy.deepcopy(field.get("default"))
     return config
 

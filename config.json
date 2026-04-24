@@ -15,5 +15,132 @@
         "title": "RK3588 HMI 智能终端",
         "width": 800,
         "height": 480
+    },
+    "plc_control": {
+        "_comment": "PLC 控制配置 - 用于与 PLC 设备通信并控制各工艺流程",
+        "enabled": true,
+        "default_port": 502,
+        "connect_timeout_ms": 1500,
+        "response_timeout_ms": 1500,
+        "flows": {
+            "1#平台智能上料": {
+                "_comment": "1号平台智能上料工艺 - 控制上料设备的启停和状态监测",
+                "enabled": true,
+                "host": "192.168.1.22",
+                "port": 5020,
+                "unit_id": 2,
+                "start_commands": [
+                    {
+                        "_comment": "启动命令1 - 写线圈值为 true 启动电机1",
+                        "function_code": 5,
+                        "offset": 0,
+                        "value": true,
+                        "label": "电机1启动(地址1/偏移0)"
+                    },
+                    {
+                        "_comment": "启动命令2 - 写线圈值为 true 打开阀门1",
+                        "function_code": 5,
+                        "offset": 100,
+                        "value": true,
+                        "label": "阀门1打开(地址101/偏移100)"
+                    }
+                ],
+                "stop_commands": [
+                    {
+                        "_comment": "停止命令1 - 写线圈值为 false 停止电机1",
+                        "function_code": 5,
+                        "offset": 0,
+                        "value": false,
+                        "label": "电机1停止(地址1/偏移0)"
+                    },
+                    {
+                        "_comment": "停止命令2 - 写线圈值为 false 关闭阀门1",
+                        "function_code": 5,
+                        "offset": 100,
+                        "value": false,
+                        "label": "阀门1关闭(地址101/偏移100)"
+                    }
+                ],
+                "status_feedback": {
+                    "_comment": "状态反馈 - 读取 PLC 设备状态信号",
+                    "discrete_inputs": {
+                        "motor_running": {
+                            "_comment": "电机运行状态 - 输入点0, 为 true 表示设备运行中",
+                            "function_code": 2,
+                            "offset": 0
+                        },
+                        "motor_stopped": {
+                            "_comment": "电机停止状态 - 输入点1, 为 true 表示设备已停止",
+                            "function_code": 2,
+                            "offset": 1
+                        },
+                        "motor_fault": {
+                            "_comment": "电机故障状态 - 输入点2, 为 true 表示设备发生故障",
+                            "function_code": 2,
+                            "offset": 2
+                        },
+                        "valve_opened": {
+                            "_comment": "阀门打开状态 - 输入点100, 为 true 表示阀门已打开",
+                            "function_code": 2,
+                            "offset": 100
+                        },
+                        "valve_closed": {
+                            "_comment": "阀门关闭状态 - 输入点101, 为 true 表示阀门已关闭",
+                            "function_code": 2,
+                            "offset": 101
+                        },
+                        "valve_fault": {
+                            "_comment": "阀门故障状态 - 输入点102, 为 true 表示阀门故障",
+                            "function_code": 2,
+                            "offset": 102
+                        }
+                    },
+                    "input_registers": {
+                        "motor_state_code": {
+                            "_comment": "电机状态码 - 读取寄存器0获取设备状态码",
+                            "function_code": 4,
+                            "offset": 0
+                        },
+                        "valve_position": {
+                            "_comment": "阀门位置 - 读取寄存器100获取阀门位置值",
+                            "function_code": 4,
+                            "offset": 100
+                        }
+                    }
+                }
+            },
+            "三色瓶分选": {
+                "enabled": true,
+                 "host": "192.168.1.22",
+                "port": 5020,
+                "unit_id": 2,
+                "start_commands": [
+                    {
+                        "_comment": "启动命令1 - 写线圈值为 true 启动电机1",
+                        "function_code": 5,
+                        "offset": 0,
+                        "value": true,
+                        "label": "电机1启动(地址1/偏移0)"
+                    }
+                    
+                ],
+                "stop_commands": [
+                    {
+                        "_comment": "停止命令1 - 写线圈值为 false 停止电机1",
+                        "function_code": 5,
+                        "offset": 0,
+                        "value": false,
+                        "label": "电机1停止(地址1/偏移0)"
+                    }
+                   
+                ]
+            },
+            "3A瓶脱标工艺": {
+                "enabled": false
+            },
+            "绿瓶脱标工艺": {
+                "enabled": false
+            }
+        }
     }
 }

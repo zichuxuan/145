@@ -1,5 +1,7 @@
+import logging
 import os
 from functools import partial
+from pathlib import Path
 
 from PyQt6.QtCore import Qt, QTimer, QDateTime
 from PyQt6.QtGui import QIcon
@@ -50,7 +52,8 @@ class SmartProduction(QWidget):
     def __init__(self, vm, parent=None):
         super().__init__(parent)
         self.vm = vm
-        self.base_path = "/home/pi/project/hmi/resources/images/"
+        self.logger = logging.getLogger("SmartProduction")
+        self.base_path = str(Path(__file__).resolve().parents[1] / "resources" / "images")
         self.menu_buttons = []
         self.device_models = []
         self.devices = []
@@ -76,7 +79,13 @@ class SmartProduction(QWidget):
         self.vm.workflows_loaded.connect(self._on_workflows_loaded)
         self.vm.workflow_detail_loaded.connect(self._on_workflow_detail_loaded)
         self.vm.workflow_operation_finished.connect(self._on_workflow_operation_finished)
-        self.vm.error_occurred.connect(lambda msg: QMessageBox.critical(self, "错误", msg))
+        self.vm.error_occurred.connect(self._handle_viewmodel_error)
+
+    def _handle_viewmodel_error(self, message: str):
+        if isinstance(message, str) and message.startswith("API 错误:"):
+            self.logger.warning("静默忽略 API 错误弹窗: %s", message)
+            return
+        QMessageBox.critical(self, "错误", message)
 
     def _init_ui(self):
         self.setObjectName("SmartProduction")

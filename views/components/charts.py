@@ -12,8 +12,14 @@ class LineChart(QWidget):
         super().__init__(parent)
         self.data = [20, 40, 30, 50, 45, 60, 55]
         self.labels = ["2026/4/10", "2026/4/11", "2026/4/12", "2026/4/13", "2026/4/14", "2026/4/15", "2026/4/16"]
-        self.line_color = QColor("#1890ff")
         self.point_color = QColor("#ffffff")
+        self.line_gradient_stops = [
+            (0.0, QColor("#2AFADF")),
+            (0.28, QColor("#00C2FF")),
+            (0.58, QColor("#4D6BFF")),
+            (0.82, QColor("#8B5CFF")),
+            (1.0, QColor("#FF4FD8")),
+        ]
         
     def paintEvent(self, event):
         """按当前控件尺寸绘制折线、渐变填充和横轴标签。"""
@@ -44,19 +50,30 @@ class LineChart(QWidget):
             y = height - padding - (val - min_val) / (max_val - min_val) * (height - 2 * padding)
             points.append(QPointF(x, y))
             
-        # 先绘制折线主体。
-        pen = QPen(self.line_color, 2)
+        # 折线本身使用横向大跨度渐变，更贴近设计稿的科技感。
+        line_gradient = QLinearGradient(padding, 0, width - padding, 0)
+        for stop, color in self.line_gradient_stops:
+            line_gradient.setColorAt(stop, color)
+        pen = QPen(QBrush(line_gradient), 3)
         painter.setPen(pen)
         for i in range(len(points) - 1):
             painter.drawLine(points[i], points[i+1])
+
+        # 节点使用纯白描边 + 渐变内芯，避免在深色背景上丢失层次。
+        for i, point in enumerate(points):
+            point_color = self.line_gradient_stops[min(i, len(self.line_gradient_stops) - 1)][1]
+            painter.setBrush(QBrush(point_color))
+            painter.setPen(QPen(self.point_color, 1.5))
+            painter.drawEllipse(point, 4, 4)
             
         # 再绘制折线下方的渐变区域，增强层次感。
         path = [QPointF(padding, height - padding)] + points + [QPointF(width - padding, height - padding)]
         gradient = QLinearGradient(0, 0, 0, height)
-        # 颜色由上到下逐渐透明，形成类似设计稿中的紫蓝过渡效果。
-        gradient.setColorAt(0, QColor(114, 46, 209, 80))  # 顶部偏紫
-        gradient.setColorAt(0.5, QColor(24, 144, 255, 40))  # 中段偏蓝
-        gradient.setColorAt(1, QColor(24, 144, 255, 0))
+        # 面积填充拉大颜色跨度，形成更明显的冷暖过渡。
+        gradient.setColorAt(0.0, QColor(255, 79, 216, 88))
+        gradient.setColorAt(0.32, QColor(122, 92, 255, 72))
+        gradient.setColorAt(0.65, QColor(0, 194, 255, 42))
+        gradient.setColorAt(1.0, QColor(42, 250, 223, 0))
         painter.setBrush(QBrush(gradient))
         painter.setPen(Qt.PenStyle.NoPen)
         painter.drawPolygon(path)
@@ -77,14 +94,14 @@ class BarChart(QWidget):
         super().__init__(parent)
         self.data = [50, 80, 40, 30, 20, 35, 60, 70, 55, 90, 110, 75]
         self.labels = ["3A", "绿瓶", "二级蓝白", "杂瓶", "吸塑片", "小油壶", "尾料", "乐虎", "花口瓶", "透明丙", "瓷白", "标签"]
-        # 为柱子准备一组从青色到紫色的渐变基色，循环复用。
-        self.bar_colors = [
-            "#00F0FF", "#00F0FF",  # 青色
-            "#00A2FF", "#00A2FF",  # 天蓝
-            "#1890FF", "#1890FF",  # 蓝色
-            "#4367FF", "#4367FF",  # 靛蓝
-            "#722ED1", "#722ED1",  # 紫色
-            "#9254DE", "#9254DE"   # 浅紫
+        # 每根柱子都使用大跨度渐变，而不是单一色相的明暗变化。
+        self.bar_gradients = [
+            ("#2AFADF", "#00C2FF", "#3F87FF"),
+            ("#52F1FF", "#1E96FF", "#725CFF"),
+            ("#68E0FF", "#4D6BFF", "#9C4DFF"),
+            ("#89F7FE", "#6253E1", "#B14BFF"),
+            ("#36D1DC", "#5B86E5", "#C85CFF"),
+            ("#4FACFE", "#6A5BFF", "#FF5FD2"),
         ]
         
     def paintEvent(self, event):
@@ -115,16 +132,27 @@ class BarChart(QWidget):
             y = height - padding_bottom - h
             
             rect = QRectF(x, y, bar_width, h)
-            color = QColor(self.bar_colors[i % len(self.bar_colors)])
+            top_color, mid_color, bottom_color = [
+                QColor(color) for color in self.bar_gradients[i % len(self.bar_gradients)]
+            ]
             
-            # 每个柱子使用纵向渐变，顶部亮、底部稍暗，增强立体感。
+            # 每个柱子都采用跨色更大的三段式渐变。
             gradient = QLinearGradient(x, y, x, y + h)
-            gradient.setColorAt(0, color)
-            gradient.setColorAt(1, color.darker(120))
+            gradient.setColorAt(0.0, top_color.lighter(112))
+            gradient.setColorAt(0.45, mid_color)
+            gradient.setColorAt(1.0, bottom_color.darker(118))
             
             painter.setBrush(QBrush(gradient))
             painter.setPen(Qt.PenStyle.NoPen)
-            painter.drawRoundedRect(rect, 3, 3)
+            painter.drawRoundedRect(rect, 4, 4)
+
+            highlight_rect = QRectF(x + 1.5, y + 2, max(bar_width * 0.28, 2), max(h - 5, 0))
+            if highlight_rect.height() > 0:
+                highlight = QLinearGradient(highlight_rect.x(), 0, highlight_rect.right(), 0)
+                highlight.setColorAt(0.0, QColor(255, 255, 255, 70))
+                highlight.setColorAt(1.0, QColor(255, 255, 255, 0))
+                painter.setBrush(QBrush(highlight))
+                painter.drawRoundedRect(highlight_rect, 3, 3)
             
             # 底部类目名称与柱子按同样节奏均匀排列。
             painter.setPen(QColor("#FFFFFF"))
@@ -138,14 +166,38 @@ class StorageBar(QWidget):
 
     通过单个纵向柱形直观展示某个缓存仓当前库存占比。
     """
-    def __init__(self, label, value, unit="kg", color="#1890ff", parent=None):
+    def __init__(self, label, value, unit="kg", color="#1890ff", gradient_colors=None, max_value=1000, parent=None):
         super().__init__(parent)
         self.label = label
         self.value = value
         self.unit = unit
         self.color = QColor(color)
-        # 当前按固定最大值换算占比，后续如接真实容量可改为动态传入。
-        self.max_value = 1000
+        self.gradient_colors = gradient_colors
+        # 使用统一标尺换算柱高，保证多个仓储条之间的高度对比准确。
+        self.max_value = max(max_value, 1)
+
+    def _get_fill_gradient_stops(self, fill_ratio):
+        """返回随柱高变化的渐变色停靠点。"""
+        if self.gradient_colors:
+            base_top = QColor(self.gradient_colors[0])
+            base_bottom = QColor(self.gradient_colors[1])
+        elif self.color.name() == "#1890ff":  # 蓝色系仓储条
+            base_top = QColor("#1890FF")
+            base_bottom = QColor("#0050B3")
+        else:  # 橙黄色系仓储条
+            base_top = QColor("#FFA940")
+            base_bottom = QColor("#D46B08")
+
+        # 高柱子保留更多亮部，低柱子更快过渡到深色，形成“随高度变色”的效果。
+        highlight_strength = 100 + int(fill_ratio * 35)
+        shadow_strength = 135 - int(fill_ratio * 15)
+        mid_stop = max(0.18, 0.42 - fill_ratio * 0.18)
+
+        return [
+            (0.0, base_top.lighter(highlight_strength)),
+            (mid_stop, base_top),
+            (1.0, base_bottom.darker(shadow_strength)),
+        ]
         
     def paintEvent(self, event):
         """绘制料位值、背景槽、填充柱、刻度提示和底部标题。"""
@@ -160,31 +212,72 @@ class StorageBar(QWidget):
         painter.setFont(QFont("Inter", 10, QFont.Weight.Bold))
         painter.drawText(QRectF(0, 0, width, 20), Qt.AlignmentFlag.AlignCenter, f"{self.value}{self.unit}")
         
-        # 先绘制背景槽，表示总容量范围。
+        # 先绘制背景槽，做成更贴近设计稿的暗色玻璃轨道。
         bar_y = 30
         bar_height = height - 70  # 底部留给仓库名称标签。
-        bar_width = width * 0.5
+        bar_width = width * 0.42
         bar_x = (width - bar_width) / 2
         
         bg_rect = QRectF(bar_x, bar_y, bar_width, bar_height)
-        painter.setBrush(QBrush(QColor("#2A3038")))
+        track_gradient = QLinearGradient(0, bar_y, 0, bar_y + bar_height)
+        track_gradient.setColorAt(0, QColor("#161C24"))
+        track_gradient.setColorAt(1, QColor("#262E39"))
+        painter.setBrush(QBrush(track_gradient))
+        painter.setPen(QPen(QColor(255, 255, 255, 22), 1))
+        painter.drawRoundedRect(bg_rect, 8, 8)
+
+        # 轨道内部再叠一层微弱高光，让边缘更像 Figma 里的半透明质感。
+        inner_track_rect = bg_rect.adjusted(2, 2, -2, -2)
+        inner_track_gradient = QLinearGradient(bar_x, bar_y, bar_x + bar_width, bar_y)
+        inner_track_gradient.setColorAt(0, QColor(255, 255, 255, 18))
+        inner_track_gradient.setColorAt(0.45, QColor(255, 255, 255, 6))
+        inner_track_gradient.setColorAt(1, QColor(255, 255, 255, 0))
+        painter.setBrush(QBrush(inner_track_gradient))
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.drawRoundedRect(bg_rect, 6, 6)
+        painter.drawRoundedRect(inner_track_rect, 7, 7)
         
         # 再绘制填充部分，高度按当前值 / 最大值计算。
-        fill_height = (self.value / self.max_value) * bar_height
-        fill_rect = QRectF(bar_x, bar_y + bar_height - fill_height, bar_width, fill_height)
+        fill_ratio = min(self.value / self.max_value, 1.0)
+        fill_height = fill_ratio * inner_track_rect.height()
+        fill_rect = QRectF(
+            inner_track_rect.x(),
+            inner_track_rect.y() + inner_track_rect.height() - fill_height,
+            inner_track_rect.width(),
+            fill_height,
+        )
         
         gradient = QLinearGradient(0, bar_y + bar_height - fill_height, 0, bar_y + bar_height)
-        if self.color.name() == "#1890ff":  # 蓝色系仓储条
-            gradient.setColorAt(0, QColor("#1890FF"))
-            gradient.setColorAt(1, QColor("#0050B3"))
-        else:  # 橙黄色系仓储条
-            gradient.setColorAt(0, QColor("#FFA940"))
-            gradient.setColorAt(1, QColor("#D46B08"))
+        for stop, color in self._get_fill_gradient_stops(fill_ratio):
+            gradient.setColorAt(stop, color)
         
         painter.setBrush(QBrush(gradient))
-        painter.drawRoundedRect(fill_rect, 6, 6)
+        painter.drawRoundedRect(fill_rect, 7, 7)
+
+        # 顶部高光帽沿，增强“液面”感。
+        top_cap_height = min(14, max(6, fill_height * 0.16))
+        top_cap_rect = QRectF(fill_rect.x(), fill_rect.y(), fill_rect.width(), top_cap_height)
+        top_cap_gradient = QLinearGradient(0, top_cap_rect.y(), 0, top_cap_rect.y() + top_cap_rect.height())
+        top_cap_gradient.setColorAt(0, QColor(255, 255, 255, 120))
+        top_cap_gradient.setColorAt(1, QColor(255, 255, 255, 0))
+        painter.setBrush(QBrush(top_cap_gradient))
+        painter.drawRoundedRect(top_cap_rect, 7, 7)
+
+        # 左侧纵向反光条，模拟设计稿中的玻璃感。
+        sheen_rect = QRectF(fill_rect.x() + 2, fill_rect.y() + 3, fill_rect.width() * 0.32, max(fill_rect.height() - 6, 0))
+        if sheen_rect.height() > 0:
+            sheen_gradient = QLinearGradient(sheen_rect.x(), 0, sheen_rect.x() + sheen_rect.width(), 0)
+            sheen_gradient.setColorAt(0, QColor(255, 255, 255, 76))
+            sheen_gradient.setColorAt(1, QColor(255, 255, 255, 0))
+            painter.setBrush(QBrush(sheen_gradient))
+            painter.drawRoundedRect(sheen_rect, 6, 6)
+
+        # 底部轻微发光，压出悬浮层次。
+        glow_rect = QRectF(fill_rect.x(), fill_rect.bottom() - 10, fill_rect.width(), 10)
+        glow_gradient = QLinearGradient(0, glow_rect.y(), 0, glow_rect.bottom())
+        glow_gradient.setColorAt(0, QColor(255, 255, 255, 0))
+        glow_gradient.setColorAt(1, QColor(255, 255, 255, 28))
+        painter.setBrush(QBrush(glow_gradient))
+        painter.drawRoundedRect(glow_rect, 6, 6)
         
         # 用虚线标出高料位/低料位的参考位置。
         painter.setPen(QPen(QColor(255, 255, 255, 30), 1, Qt.PenStyle.DashLine))
