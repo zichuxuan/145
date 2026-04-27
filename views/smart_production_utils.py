@@ -128,17 +128,103 @@ def get_node_summary(node):
 
 def extract_workflow_description(workflow):
     """从工作流数据中提取描述信息。
-    
-    优先从 "workflow_params" 中获取，若无则尝试从 "conditions" 获取。
-    
+
+    优先从 "info" 获取，若无则尝试从 "workflow_params" 或 "conditions" 中回退获取。
+
     Args:
         workflow (dict): 包含工作流元数据的字典。
-        
+
     Returns:
         str: 提取到的工作流描述文本。
     """
     if not isinstance(workflow, dict):
         return ""
+    if workflow.get("info"):
+        return workflow.get("info")
+    
     workflow_params = workflow.get("workflow_params") if isinstance(workflow.get("workflow_params"), dict) else {}
     conditions = workflow.get("conditions") if isinstance(workflow.get("conditions"), dict) else {}
     return workflow_params.get("description") or conditions.get("description") or ""
+
+def build_workflow_detail_payload(canvas_detail):
+    """将画布原始数据转换为后端双层持久化结构。
+    
+    包含 canvas(原样保留) 和 execution(提取出的执行链路和配置)。
+    """
+    if not isinstance(canvas_detail, dict):
+        return {}
+        
+    execution = {
+        "nodes": [],
+        "root_sequence": [],
+        "meta": {"node_count": 0}
+    }
+    
+    def _traverse(sequence, parent_node_id=None, branch_key=None):
+        if not isinstance(sequence, list):
+            return []
+            
+        node_ids = []
+        for i, node in enumerate(sequence):
+            if not isinstance(node, dict):
+                continue
+                
+            node_id = node.get("id")
+            if not node_id:
+                continue
+                
+            node_ids.append(node_id)
+            node_type = node.get("type", "")
+            config = node.get("config", {})
+            
+            exec_node = {
+                "node_id": node_id,
+                "node_type": node_type,
+                "order": i,
+                "parent_node_id": parent_node_id,
+                "branch_key": branch_key,
+                "config": config,
+                "device_config": {},
+                "execute_action": config.get("action", ""),
+                "output_action": config.get("output_property", "")
+            }
+            
+            if config.get("device_name"):
+                exec_node["device_config"]["device_name"] = config.get("device_name")
+                from .smart_production_constants import NODE_LIBRARY
+                exec_node["device_config"]["device_category"] = NODE_LIBRARY.get(node_type, {}).get("label", "")
+                
+            execution["nodes"].append(exec_node)
+            execution["meta"]["node_count"] += 1
+            
+            # Recursively traverse branches
+            if "yes_branch" in node:
+                _traverse(node.get("yes_branch", []), parent_node_id=node_id, branch_key="yes_branch")
+            if "no_branch" in node:
+                _traverse(node.get("no_branch", []), parent_node_id=node_id, branch_key="no_branch")
+            if "body_branch" in node:
+                _traverse(node.get("body_branch", []), parent_node_id=node_id, branch_key="body_branch")
+                
+        return node_ids
+
+    root_sequence = canvas_detail.get("sequence", [])
+    execution["root_sequence"] = _traverse(root_sequence, parent_node_id=None, branch_key="root_sequence")
+    
+    return {
+        "version": 2,
+        "canvas": canvas_detail,
+        "execution": execution
+    }
+
+def extract_canvas_detail(workflow_detail):
+    """兼容提取用于渲染画布的配置数据。
+    
+    如果符合 version=2 的双层结构，则返回 canvas 层；否则原样返回旧版。
+    """
+    if not isinstance(workflow_detail, dict):
+        return {"version": 1, "sequence": []}
+        
+    if workflow_detail.get("version") == 2 and "canvas" in workflow_detail:
+        return workflow_detail.get("canvas", {})
+        
+    return workflow_detail

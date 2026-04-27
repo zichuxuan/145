@@ -11,6 +11,8 @@ class Workflow:
     workflow_params: Optional[Dict[str, Any]] = None
     workflow_detail: Optional[Dict[str, Any]] = None
     conditions: Optional[Dict[str, Any]] = None
+    enable_or_not: Optional[int] = None
+    info: Optional[str] = None
     is_deleted: bool = False
     deleted_at: Optional[datetime] = None
     created_at: Optional[datetime] = None
