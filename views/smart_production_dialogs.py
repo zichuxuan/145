@@ -534,7 +534,7 @@ class WorkflowNodeConfigDialog(QDialog):
         node_label = NODE_LIBRARY.get(self.node_type, {}).get("label", "")
         self._device_map = {}
 
-        self.device_fetcher = ApiFetcher("/api/v1/devices", params={"size": 200, "keyword": node_label})
+        self.device_fetcher = ApiFetcher("/api/v1/devices", params={"size": 200, "device_category": node_label})
         self.device_fetcher.finished.connect(self._on_devices_loaded)
         self.device_fetcher.error.connect(self._on_api_error)
         self.device_fetcher.start()
@@ -548,7 +548,14 @@ class WorkflowNodeConfigDialog(QDialog):
 
         items = data.get("items", [])
         node_label = NODE_LIBRARY.get(self.node_type, {}).get("label", "")
-        filtered = [d for d in items if node_label in d.get("device_name", "") or node_label in d.get("device_category", "")]
+        
+        # 按照需求：查找设备类别里包含该节点名称（如“破碎机”）的数据
+        filtered = [d for d in items if node_label in (d.get("device_category") or "")]
+        
+        # 如果类别过滤后为空，再尝试按名称过滤作为兜底
+        if not filtered:
+            filtered = [d for d in items if node_label in (d.get("device_name") or "")]
+            
         if not filtered:
             filtered = items
 
