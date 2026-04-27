@@ -643,11 +643,15 @@ class WorkflowNodeConfigDialog(QDialog):
             if isinstance(widget, QComboBox):
                 widget.clear()
                 widget.setEnabled(True)
+                widget.addItem("空", "")
                 for name in action_names:
                     widget.addItem(name, name)
                 
                 saved_value = self.node_config.get(key)
-                idx = widget.findText(str(saved_value))
+                normalized_value = "" if saved_value is None else str(saved_value)
+                idx = widget.findData(normalized_value)
+                if idx < 0:
+                    idx = widget.findText(normalized_value)
                 widget.setCurrentIndex(idx if idx >= 0 else 0)
 
     def _on_api_error(self, err):
@@ -658,7 +662,12 @@ class WorkflowNodeConfigDialog(QDialog):
             if isinstance(widget, QComboBox) and not widget.isEnabled():
                 widget.clear()
                 widget.setEnabled(True)
-                widget.addItem("加载失败", None)
+                if key in ["action", "output_property"]:
+                    widget.addItem("空", "")
+                    widget.addItem("加载失败", None)
+                    widget.setCurrentIndex(0)
+                else:
+                    widget.addItem("加载失败", None)
 
     def get_config(self):
         """收集表单中的数据，并返回为字典。
