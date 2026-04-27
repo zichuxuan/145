@@ -642,6 +642,7 @@ class SmartProduction(QWidget):
             "info": description,
             "workflow_params": {
                 "is_draft": bool(is_draft),
+                "description": description, # 兜底写入，兼容后端未同步 info 的情况
             },
             "workflow_detail": workflow_detail,
             "conditions": {},
