@@ -172,21 +172,66 @@ class WorkflowNodeConfigDialog(QDialog):
                 font-size: 18px;
             }
             QComboBox {
-                background-color: #2D3748;
+                background-color: rgba(255, 255, 255, 0.05);
                 color: white;
-                border: 1px solid rgba(255,255,255,0.18);
+                border: 1px solid rgba(255, 255, 255, 0.15);
                 border-radius: 8px;
                 padding: 10px 12px;
+                font-size: 18px;
+            }
+            QComboBox:hover {
+                background-color: rgba(255, 255, 255, 0.08);
+                border: 1px solid rgba(255, 255, 255, 0.3);
+            }
+            QComboBox:on {
+                background-color: rgba(255, 255, 255, 0.12);
+                border: 1px solid #007AFF;
+            }
+            QComboBox:disabled {
+                background-color: rgba(255, 255, 255, 0.02);
+                color: rgba(255, 255, 255, 0.4);
+                border: 1px solid rgba(255, 255, 255, 0.08);
             }
             QComboBox::drop-down {
+                subcontrol-origin: padding;
+                subcontrol-position: top right;
+                width: 32px;
                 border: none;
             }
+            QComboBox::down-arrow {
+                image: none;
+                border-left: 2px solid transparent;
+                border-right: 2px solid transparent;
+                border-top: 5px solid rgba(255, 255, 255, 0.6);
+                width: 0;
+                height: 0;
+                margin-top: 2px;
+            }
+            QComboBox::down-arrow:on {
+                border-top: 5px solid #007AFF;
+            }
+            QComboBox::down-arrow:disabled {
+                border-top: 5px solid rgba(255, 255, 255, 0.2);
+            }
             QComboBox QAbstractItemView {
-                background-color: #2D3748;
+                background-color: #212631;
                 color: white;
-                selection-background-color: #007AFF;
-                selection-color: white;
-                border: 1px solid rgba(255,255,255,0.18);
+                border: 1px solid rgba(255, 255, 255, 0.15);
+                border-radius: 8px;
+                outline: none;
+                padding: 4px;
+            }
+            QComboBox QAbstractItemView::item {
+                min-height: 38px;
+                padding-left: 8px;
+                border-radius: 4px;
+            }
+            QComboBox QAbstractItemView::item:hover {
+                background-color: rgba(255, 255, 255, 0.08);
+            }
+            QComboBox QAbstractItemView::item:selected {
+                background-color: rgba(0, 122, 255, 0.8);
+                color: white;
             }
             QDialogButtonBox QPushButton {
                 min-width: 120px;
@@ -199,20 +244,8 @@ class WorkflowNodeConfigDialog(QDialog):
         self._init_ui()
 
     def _apply_combo_dark_style(self, combo: QComboBox):
-        palette = combo.palette()
-        palette.setColor(QPalette.ColorRole.Base, QColor("#2D3748"))
-        palette.setColor(QPalette.ColorRole.Button, QColor("#2D3748"))
-        palette.setColor(QPalette.ColorRole.Text, QColor("white"))
-        palette.setColor(QPalette.ColorRole.ButtonText, QColor("white"))
-        combo.setPalette(palette)
-        combo.setStyleSheet("QComboBox { background-color: #2D3748; color: white; }")
-        view = combo.view()
-        if view is not None:
-            view.setPalette(palette)
-            view.setStyleSheet(
-                "QAbstractItemView { background-color: #2D3748; color: white; "
-                "selection-background-color: #007AFF; selection-color: white; }"
-            )
+        # 样式已统一由全局 QSS (setStyleSheet) 接管，这里保留空方法以保持兼容性
+        pass
 
     def _init_ui(self):
         """初始化配置表单的基础布局。
