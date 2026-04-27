@@ -64,7 +64,7 @@
 
 ## 📡 设备实例管理 (Device Instance)
 
-### `GET /api/v1/devices`
+### `GET /api/v1/devices` 🔴 (前端补充设计了新查询参数)
 
 分页获取所有活跃设备列表（已过滤逻辑删除）
 
@@ -72,8 +72,8 @@
 
 - `page`: 页码 (默认 1，最小 1)
 - `size`: 每页数量 (默认 15，最小 1，最大 200)
-- `keyword`: 关键字，按设备名称 (`device_name`) 或设备编号 (`device_code`) 模糊过滤 (可选)
-- `device_category`: 设备类别，按类别精确筛选 (可选)
+- `keyword`: 🔴 (新增) 关键字，按设备名称 (`device_name`) 或设备编号 (`device_code`) 模糊过滤 (可选)
+- `device_category`: 🔴 (新增) 设备类别，按类别精确筛选 (可选)
 
 **响应结构**:
 
