@@ -36,6 +36,8 @@ from .smart_production_constants import (
 from .smart_production_utils import (
     create_default_workflow_detail,
     extract_workflow_description,
+    build_workflow_detail_payload,
+    extract_canvas_detail
 )
 from .smart_production_canvas import (
     WorkflowCanvasEditor,
@@ -609,11 +611,14 @@ class SmartProduction(QWidget):
         self.workflow_enabled_radio.setChecked(enabled)
         self.workflow_disabled_radio.setChecked(not enabled)
         self.workflow_description_input.setPlainText(extract_workflow_description(workflow))
-        self.workflow_canvas_editor.set_workflow_detail(workflow.get("workflow_detail") or create_default_workflow_detail())
+        
+        # 兼容读取 workflow_detail 的双层结构或旧单层结构
+        canvas_detail = extract_canvas_detail(workflow.get("workflow_detail") or create_default_workflow_detail())
+        self.workflow_canvas_editor.set_workflow_detail(canvas_detail)
 
     def _collect_workflow_payload(self, is_draft=False):
         """收集画布及表单内容，组装成要下发给后端的标准 payload。
-        
+
         Args:
             is_draft (bool): 是否作为草稿保存（影响 enable_or_not 标记）。
         Returns:
@@ -626,14 +631,19 @@ class SmartProduction(QWidget):
         workflow_type = self.workflow_type_combo.currentData() or self.workflow_type_combo.currentText().strip()
         description = self.workflow_description_input.toPlainText().strip()
         enable_or_not = 0 if is_draft else (1 if self.workflow_enabled_radio.isChecked() else 0)
+        
+        # 建立双层结构的 workflow_detail
+        canvas_detail = self.workflow_canvas_editor.get_workflow_detail()
+        workflow_detail = build_workflow_detail_payload(canvas_detail)
+        
         return {
             "workflow_name": workflow_name,
             "workflow_type": workflow_type,
+            "info": description,
             "workflow_params": {
-                "description": description,
                 "is_draft": bool(is_draft),
             },
-            "workflow_detail": self.workflow_canvas_editor.get_workflow_detail(),
+            "workflow_detail": workflow_detail,
             "conditions": {},
             "enable_or_not": enable_or_not,
         }

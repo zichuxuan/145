@@ -240,7 +240,21 @@
 {
   "workflow_name": "数据采集流程",
   "workflow_type": "COLLECT",
-  "workflow_params": {"interval": 1000}
+  "info": "这里是流程说明",
+  "enable_or_not": 1,
+  "workflow_params": {"is_draft": false},
+  "workflow_detail": {
+    "version": 2,
+    "canvas": {
+      "version": 1,
+      "sequence": []
+    },
+    "execution": {
+      "nodes": [],
+      "root_sequence": [],
+      "meta": {"node_count": 0}
+    }
+  }
 }
 ```
 

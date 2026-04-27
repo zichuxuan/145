@@ -62,6 +62,7 @@ class DeviceService:
             "workflow_detail",
             "conditions",
             "enable_or_not",
+            "info",
         }
 
     def _to_log_text(self, value: Any) -> str:
@@ -189,7 +190,6 @@ class DeviceService:
             return {}
 
         alias_to_field = {
-            "description": "conditions",
             "enabled": "enable_or_not",
         }
         payload: Dict[str, Any] = {}
@@ -206,6 +206,9 @@ class DeviceService:
 
         if "enable_or_not" in payload:
             payload["enable_or_not"] = 1 if bool(payload["enable_or_not"]) else 0
+            
+        if "info" in payload:
+            payload["info"] = str(payload["info"])
 
         return payload
 
