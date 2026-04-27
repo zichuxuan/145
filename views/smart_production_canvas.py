@@ -28,17 +28,17 @@ from .smart_production_dialogs import (
     WorkflowNodeConfigDialog,
 )
 
-class ElseBranchEndSection(QWidget):
-    """判断节点 "否则" 分支的末尾显示区。
+class MergeUpwardConnector(QWidget):
+    """判断节点 "否则" 分支的末尾向上折返连线。
     
-    使用 QPainter 绘制表示流程终止的连线和一个红色的 "结束" 圆点，
-    直观地表明当条件不满足时分支如何流转。
+    使用 QPainter 绘制表示分支汇合的连线：向右延伸 -> 向上折转 -> 向右延伸，
+    末尾带一个蓝色圆点，模拟与主线的汇合。
     """
-    def __init__(self, scale_func, parent=None):
+    def __init__(self, scale_func, up_distance, parent=None):
         super().__init__(parent)
         self._scale_func = scale_func
-        self.setFixedHeight(self._scaled(148))
-        self.setMinimumWidth(self._scaled(520))
+        self.up_distance = up_distance
+        self.setMinimumWidth(self._scaled(100))
         self.setStyleSheet("background: transparent;")
 
     def _scaled(self, value):
@@ -54,36 +54,196 @@ class ElseBranchEndSection(QWidget):
         line_pen.setWidth(max(1, self._scaled(2)))
         painter.setPen(line_pen)
 
-        width = max(1, self.width())
-        height = max(1, self.height())
-        endpoint_size = self._scaled(88)
-        endpoint_x = width - endpoint_size - self._scaled(12)
-        endpoint_y = height - endpoint_size - self._scaled(12)
-        endpoint_center_y = endpoint_y + endpoint_size / 2
+        width = self.width()
+        height = self.height()
+        
+        start_x = 0
+        start_y = height // 2
 
-        branch_line_x = self._scaled(88)
-        top_y = self._scaled(12)
+        turn_x = self._scaled(36)
 
-        painter.drawLine(branch_line_x, top_y, branch_line_x, int(endpoint_center_y))
-        painter.drawLine(branch_line_x, int(endpoint_center_y), int(endpoint_x), int(endpoint_center_y))
+        target_y = start_y - self.up_distance
 
+        end_x = width - self._scaled(16)
+
+        painter.drawLine(start_x, start_y, turn_x, start_y)
+        painter.drawLine(turn_x, start_y, turn_x, target_y)
+        painter.drawLine(turn_x, target_y, end_x, target_y)
+
+        dot_radius = self._scaled(4)
         painter.setPen(Qt.PenStyle.NoPen)
-        painter.setBrush(QColor("#DC2626"))
-        painter.drawEllipse(int(endpoint_x), int(endpoint_y), endpoint_size, endpoint_size)
+        painter.setBrush(QColor("#007AFF"))
+        painter.drawEllipse(end_x - dot_radius, target_y - dot_radius, dot_radius * 2, dot_radius * 2)
 
+
+class JudgmentNodeWidget(QFrame):
+    """自定义判断节点 UI 组件，呈现左右拼接的卡片样式，带有两个分支出口。"""
+    def __init__(self, node, scale_func, edit_cb, delete_cb, parent=None):
+        super().__init__(parent)
+        self._scale_func = scale_func
+        self.node = node
+        self.edit_cb = edit_cb
+        self.delete_cb = delete_cb
+        self.setFixedSize(self._scaled(260), self._scaled(120))
+        self.setStyleSheet("background: transparent; border: none;")
+
+        layout = QVBoxLayout(self)
+        layout.setContentsMargins(self._scaled(90), self._scaled(10), self._scaled(20), self._scaled(10))
+        
+        config = self.node.get("config", {})
+        yes_label = config.get("yes_label", "当满足时")
+        no_label = config.get("no_label", "否则")
+        
+        self.lbl_yes = QLabel(yes_label)
+        self.lbl_yes.setStyleSheet(f"color: white; font-size: {self._scaled(14)}px; font-weight: bold;")
+        self.lbl_yes.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        
+        self.lbl_no = QLabel(no_label)
+        self.lbl_no.setStyleSheet(f"color: white; font-size: {self._scaled(14)}px; font-weight: bold;")
+        self.lbl_no.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+
+        btn_layout = QHBoxLayout()
+        btn_layout.setSpacing(self._scaled(8))
+        btn_layout.addStretch()
+        
+        edit_btn = QPushButton("编辑")
+        delete_btn = QPushButton("删除")
+        edit_btn.setFixedSize(self._scaled(40), self._scaled(24))
+        delete_btn.setFixedSize(self._scaled(40), self._scaled(24))
+        
+        btn_style = f"background-color: rgba(255,255,255,0.12); color: white; border-radius: {self._scaled(4)}px; font-size: {self._scaled(12)}px;"
+        del_btn_style = f"background-color: rgba(239,68,68,0.12); color: #F87171; border-radius: {self._scaled(4)}px; font-size: {self._scaled(12)}px;"
+        edit_btn.setStyleSheet(btn_style)
+        delete_btn.setStyleSheet(del_btn_style)
+        
+        edit_btn.clicked.connect(self.edit_cb)
+        delete_btn.clicked.connect(self.delete_cb)
+        
+        btn_layout.addWidget(edit_btn)
+        btn_layout.addWidget(delete_btn)
+        
+        layout.addWidget(self.lbl_yes)
+        layout.addStretch()
+        layout.addWidget(self.lbl_no)
+        layout.addLayout(btn_layout)
+
+    def _scaled(self, value):
+        return self._scale_func(value)
+
+    def paintEvent(self, event):
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+        
+        width = self.width()
+        height = self.height()
+        radius = self._scaled(12)
+        left_width = self._scaled(80)
+        
+        # Draw right part (dark gray)
+        painter.setPen(Qt.PenStyle.NoPen)
+        painter.setBrush(QColor("#2A2F3A"))
+        painter.drawRoundedRect(0, 0, width - self._scaled(10), height, radius, radius)
+        
+        # Draw left part (orange)
+        painter.setBrush(QColor("#F59E0B"))
+        # Draw a rounded rect for left part
+        painter.drawRoundedRect(0, 0, left_width, height, radius, radius)
+        # Fill the right corners of the left part to make it flush with the right part
+        painter.drawRect(left_width - radius, 0, radius, height)
+        
+        # Draw "判断" text in left part
         painter.setPen(QColor("white"))
         font = painter.font()
+        font.setPixelSize(self._scaled(18))
         font.setBold(True)
-        font.setPixelSize(self._scaled(24))
         painter.setFont(font)
-        painter.drawText(
-            int(endpoint_x),
-            int(endpoint_y),
-            endpoint_size,
-            endpoint_size,
-            int(Qt.AlignmentFlag.AlignCenter),
-            "结束",
+        painter.drawText(0, 0, left_width, height, Qt.AlignmentFlag.AlignCenter, "判断")
+
+        dot_radius = self._scaled(4)
+        dot_x = width - self._scaled(10)
+
+        top_y = self._scaled(24)
+        bottom_y = self._scaled(88)
+        
+        painter.setBrush(QColor("#007AFF"))
+        painter.drawEllipse(dot_x - dot_radius, top_y - dot_radius, dot_radius * 2, dot_radius * 2)
+        painter.drawEllipse(dot_x - dot_radius, bottom_y - dot_radius, dot_radius * 2, dot_radius * 2)
+
+        line_pen = QPen(QColor("#007AFF"))
+        line_pen.setWidth(max(1, self._scaled(2)))
+        painter.setPen(line_pen)
+        painter.drawLine(width - self._scaled(10), top_y, width, top_y)
+        painter.drawLine(width - self._scaled(10), bottom_y, width, bottom_y)
+
+
+class RootJudgmentNodeWrapper(QWidget):
+    """根判断节点的包装容器。
+
+    使用自定义绘制补齐主线的水平连线；“否则”分支独立连接到结束节点。
+    """
+
+    def __init__(self, node, sequence, index, scale_func, edit_cb, delete_cb, build_seq_func, parent=None):
+        super().__init__(parent)
+        self._scale_func = scale_func
+        self.setStyleSheet("background: transparent;")
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(0, 0, 0, 0)
+        layout.setSpacing(0)
+
+        self.judgment_card = JudgmentNodeWidget(node, scale_func, edit_cb, delete_cb)
+        layout.addWidget(self.judgment_card, alignment=Qt.AlignmentFlag.AlignTop)
+
+        right_container = QWidget()
+        right_layout = QVBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+
+        spacer = QWidget()
+        spacer.setFixedHeight(self._scaled(44))
+        right_layout.addWidget(spacer)
+
+        branch_layout = QHBoxLayout()
+        branch_layout.setContentsMargins(0, 0, 0, 0)
+        branch_layout.setSpacing(0)
+
+        no_branch_seq = node.setdefault("no_branch", [])
+        self.no_branch_widget = build_seq_func(no_branch_seq, is_root=False)
+        branch_layout.addWidget(self.no_branch_widget, alignment=Qt.AlignmentFlag.AlignTop)
+
+        self.no_branch_end = QLabel("结束")
+        end_size = self._scaled(88)
+        self.no_branch_end.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.no_branch_end.setFixedSize(end_size, end_size)
+        self.no_branch_end.setStyleSheet(
+            f"background-color: #DC2626; color: white; border-radius: {end_size // 2}px; "
+            f"font-size: {self._scaled(24)}px; font-weight: 600;"
         )
+        branch_layout.addWidget(self.no_branch_end, alignment=Qt.AlignmentFlag.AlignTop)
+
+        right_layout.addLayout(branch_layout)
+        right_layout.addStretch()
+
+        layout.addWidget(right_container)
+
+    def _scaled(self, value):
+        return self._scale_func(value)
+
+    def paintEvent(self, event):
+        super().paintEvent(event)
+
+        painter = QPainter(self)
+        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+
+        line_pen = QPen(QColor("#007AFF"))
+        line_pen.setWidth(max(1, self._scaled(2)))
+        painter.setPen(line_pen)
+
+        start_x = self.judgment_card.width()
+        top_y = self._scaled(24)
+        end_x = self.width()
+
+        painter.drawLine(start_x, top_y, end_x, top_y)
 
 
 class WorkflowCanvasEditor(QWidget):
@@ -413,45 +573,19 @@ class WorkflowCanvasEditor(QWidget):
         layout.addLayout(actions)
         return frame
 
-    def _create_else_branch_end_section(self):
-        section = QWidget()
-        layout = QVBoxLayout(section)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(self._scaled(8))
-        tip = QLabel("否则分支直接结束")
-        tip.setAlignment(Qt.AlignmentFlag.AlignLeft)
-        tip.setStyleSheet(f"color: rgba(255,255,255,0.56); font-size: {self._scaled(14)}px;")
-        layout.addWidget(tip)
-        layout.addWidget(ElseBranchEndSection(self._scaled, section), alignment=Qt.AlignmentFlag.AlignLeft)
-        return section
-
     def _create_root_judgment_node(self, sequence, index, node):
-        wrapper = QFrame()
-        wrapper.setStyleSheet("background: transparent; border: none;")
-        layout = QVBoxLayout(wrapper)
-        layout.setContentsMargins(0, 0, 0, 0)
-        layout.setSpacing(self._scaled(16))
-        layout.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
-
-        top_card = self._create_standard_node(sequence, index, node)
-        top_card.setFixedWidth(self._scaled(260))
-        layout.addWidget(top_card, alignment=Qt.AlignmentFlag.AlignLeft)
-
-        yes_hint = QLabel(f"{node.get('config', {}).get('yes_label', '当满足时')}：继续下一个节点")
-        yes_hint.setStyleSheet(f"color: rgba(255,255,255,0.72); font-size: {self._scaled(15)}px;")
-        layout.addWidget(yes_hint, alignment=Qt.AlignmentFlag.AlignLeft)
-
-        no_title = node.get("config", {}).get("no_label", "否则")
-        layout.addWidget(self._create_branch_panel(node, "no_branch", no_title), alignment=Qt.AlignmentFlag.AlignLeft)
-        layout.addWidget(self._create_else_branch_end_section(), alignment=Qt.AlignmentFlag.AlignLeft)
-        return wrapper
+        return RootJudgmentNodeWrapper(
+            node,
+            sequence,
+            index,
+            self._scaled,
+            partial(self._edit_node, node),
+            partial(self._delete_node, sequence, index),
+            self._build_sequence_widget,
+        )
 
     def _create_branching_node(self, sequence, index, node, is_root=False):
-        """渲染分支/判断节点。
-        
-        对根分支进行特殊处理（仅显示 '否则' 分支的显式结构，主线继续流动），
-        对非根分支，绘制上下的 '如果' / '否则' 分区。
-        """
+        """渲染分支/判断节点。"""
         if is_root:
             return self._create_root_judgment_node(sequence, index, node)
         wrapper = QFrame()
@@ -470,6 +604,7 @@ class WorkflowCanvasEditor(QWidget):
         branch_row.addWidget(self._create_branch_panel(node, "yes_branch", node.get("config", {}).get("yes_label", "是")))
         branch_row.addWidget(self._create_branch_panel(node, "no_branch", node.get("config", {}).get("no_label", "否")))
         layout.addLayout(branch_row)
+
         merge = QLabel("分支汇合后继续主流程")
         merge.setAlignment(Qt.AlignmentFlag.AlignCenter)
         merge.setStyleSheet(f"color: rgba(255,255,255,0.5); font-size: {self._scaled(14)}px;")
@@ -477,7 +612,6 @@ class WorkflowCanvasEditor(QWidget):
         return wrapper
 
     def _create_loop_node(self, sequence, index, node):
-        """渲染循环节点组件，该节点通过一个闭合的可视区（循环体）包含子流程。"""
         wrapper = QFrame()
         wrapper.setStyleSheet("background: transparent; border: none;")
         layout = QVBoxLayout(wrapper)
@@ -524,10 +658,6 @@ class WorkflowCanvasEditor(QWidget):
         return panel
 
     def _add_node(self, sequence, index):
-        """交互：添加一个新节点。
-        
-        首先弹出类型选择器，再弹出配置表单。确认后将节点数据插入 sequence 并重新渲染画布。
-        """
         picker = WorkflowNodePickerDialog(self)
         if picker.exec() != QDialog.DialogCode.Accepted or not picker.selected_type:
             return

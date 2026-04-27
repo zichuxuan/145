@@ -78,6 +78,7 @@ class PasswordDialog(QDialog):
         self.setFixedSize(400, 260)
         self.setWindowFlags(Qt.WindowType.FramelessWindowHint | Qt.WindowType.Dialog)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
+        self.setStyleSheet("background-color: transparent; border: none;")
         self._init_ui()
 
     def mousePressEvent(self, event):

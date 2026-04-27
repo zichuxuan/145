@@ -7,10 +7,8 @@
 import copy
 
 WORKFLOW_TYPE_OPTIONS = [
-    ("平台上料", "PLATFORM_FEED"),
-    ("输送联动", "CONVEYOR_LINK"),
-    ("分选处理", "SORTING_PROCESS"),
-    ("仓储控制", "STORAGE_CONTROL"),
+    ("主动流程", "ACTIVE_PROCESS"),
+    ("监控流程", "MONITORING_PROCESS"),
 ]
 
 OUTPUT_PROPERTY_OPTIONS = ["状态", "完成信号", "告警信号", "结果输出"]
