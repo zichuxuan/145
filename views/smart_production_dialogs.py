@@ -1,6 +1,7 @@
 import copy
+import requests
 from functools import partial
-from PyQt6.QtCore import Qt
+from PyQt6.QtCore import Qt, QThread, pyqtSignal
 from PyQt6.QtGui import QColor, QPalette
 from PyQt6.QtWidgets import (
     QDialog,
@@ -29,6 +30,29 @@ from .smart_production_utils import (
     get_node_label,
     build_default_config,
 )
+
+class ApiFetcher(QThread):
+    finished = pyqtSignal(object)
+    error = pyqtSignal(str)
+
+    def __init__(self, url, method="GET", params=None):
+        super().__init__()
+        self.url = url
+        self.method = method
+        self.params = params
+
+    def run(self):
+        try:
+            from utils.config import ConfigManager
+            config = ConfigManager()
+            base_url = config.get("api.base_url", "http://192.168.1.136:8000")
+            token = config.get("api.token", "changeme")
+            headers = {"API_TOKEN": token}
+            res = requests.request(self.method, f"{base_url}{self.url}", params=self.params, headers=headers, timeout=5)
+            res.raise_for_status()
+            self.finished.emit(res.json())
+        except Exception as e:
+            self.error.emit(str(e))
 
 class WorkflowNodePickerDialog(QDialog):
     """工作流节点类型选择弹窗。
@@ -249,6 +273,8 @@ class WorkflowNodeConfigDialog(QDialog):
         button_layout.addStretch()
 
         layout.addLayout(button_layout)
+
+        self._load_dynamic_data()
 
     def _init_judgment_ui(self, layout):
         """专门为判断节点初始化的定制 UI。
@@ -472,19 +498,23 @@ class WorkflowNodeConfigDialog(QDialog):
             return widget
         if field_type == "select":
             widget = QComboBox()
-            for option in field.get("options", []):
-                label = option
-                data = option
-                if isinstance(option, dict):
-                    label = option.get("label", option.get("value", ""))
-                    data = option.get("value", label)
-                elif isinstance(option, (list, tuple)) and len(option) >= 2:
-                    label, data = option[0], option[1]
-                widget.addItem(str(label), data)
-            index = widget.findData(value)
-            if index < 0:
-                index = widget.findText(str(value))
-            widget.setCurrentIndex(index if index >= 0 else 0)
+            if "dynamic_source" in field:
+                widget.addItem("加载中...", None)
+                widget.setEnabled(False)
+            else:
+                for option in field.get("options", []):
+                    label = option
+                    data = option
+                    if isinstance(option, dict):
+                        label = option.get("label", option.get("value", ""))
+                        data = option.get("value", label)
+                    elif isinstance(option, (list, tuple)) and len(option) >= 2:
+                        label, data = option[0], option[1]
+                    widget.addItem(str(label), data)
+                index = widget.findData(value)
+                if index < 0:
+                    index = widget.findText(str(value))
+                widget.setCurrentIndex(index if index >= 0 else 0)
             self._apply_combo_dark_style(widget)
             return widget
         if field_type == "number":
@@ -495,6 +525,100 @@ class WorkflowNodeConfigDialog(QDialog):
         widget = QLineEdit()
         widget.setText(str(value or ""))
         return widget
+
+    def _load_dynamic_data(self):
+        has_device = any(f.get("dynamic_source") == "device_instance" for f in get_node_schema(self.node_type))
+        if not has_device:
+            return
+
+        node_label = NODE_LIBRARY.get(self.node_type, {}).get("label", "")
+        self._device_map = {}
+
+        self.device_fetcher = ApiFetcher("/api/v1/devices", params={"size": 200, "keyword": node_label})
+        self.device_fetcher.finished.connect(self._on_devices_loaded)
+        self.device_fetcher.error.connect(self._on_api_error)
+        self.device_fetcher.start()
+
+    def _on_devices_loaded(self, data):
+        device_widget = self.widgets.get("device_name")
+        if not isinstance(device_widget, QComboBox):
+            return
+        device_widget.clear()
+        device_widget.setEnabled(True)
+
+        items = data.get("items", [])
+        node_label = NODE_LIBRARY.get(self.node_type, {}).get("label", "")
+        filtered = [d for d in items if node_label in d.get("device_name", "") or node_label in d.get("device_category", "")]
+        if not filtered:
+            filtered = items
+
+        for device in filtered:
+            name = device.get("device_name")
+            did = device.get("id")
+            if name and did:
+                self._device_map[name] = did
+                device_widget.addItem(name, name)
+
+        if not filtered:
+            device_widget.addItem("未找到设备", None)
+
+        saved_value = self.node_config.get("device_name")
+        index = device_widget.findText(str(saved_value))
+        device_widget.setCurrentIndex(index if index >= 0 else 0)
+
+        device_widget.currentIndexChanged.connect(self._on_device_changed)
+        self._on_device_changed(device_widget.currentIndex())
+
+    def _on_device_changed(self, index):
+        device_widget = self.widgets.get("device_name")
+        if not isinstance(device_widget, QComboBox) or index < 0:
+            return
+        
+        device_name = device_widget.currentText()
+        device_id = self._device_map.get(device_name)
+        if not device_id:
+            return
+
+        for key in ["action", "output_property"]:
+            widget = self.widgets.get(key)
+            if isinstance(widget, QComboBox):
+                widget.setEnabled(False)
+                widget.clear()
+                widget.addItem("加载中...", None)
+
+        self.action_fetcher = ApiFetcher("/api/v1/device-actions", params={"device_instance_id": device_id})
+        self.action_fetcher.finished.connect(self._on_actions_loaded)
+        self.action_fetcher.error.connect(self._on_api_error)
+        self.action_fetcher.start()
+
+    def _on_actions_loaded(self, data):
+        actions = data if isinstance(data, list) else data.get("items", [])
+        action_names = [a.get("action_name") for a in actions if a.get("action_name")]
+        
+        if not action_names:
+            action_names = ["启动", "停止", "获取状态", "复位"]
+
+        for key in ["action", "output_property"]:
+            widget = self.widgets.get(key)
+            if isinstance(widget, QComboBox):
+                widget.clear()
+                widget.setEnabled(True)
+                for name in action_names:
+                    widget.addItem(name, name)
+                
+                saved_value = self.node_config.get(key)
+                idx = widget.findText(str(saved_value))
+                widget.setCurrentIndex(idx if idx >= 0 else 0)
+
+    def _on_api_error(self, err):
+        print(f"API Error: {err}")
+        # 降级处理
+        for key in ["device_name", "action", "output_property"]:
+            widget = self.widgets.get(key)
+            if isinstance(widget, QComboBox) and not widget.isEnabled():
+                widget.clear()
+                widget.setEnabled(True)
+                widget.addItem("加载失败", None)
 
     def get_config(self):
         """收集表单中的数据，并返回为字典。
